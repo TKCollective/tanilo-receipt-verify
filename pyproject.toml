@@ -1,0 +1,20 @@
+[project]
+name = "tanilo-receipt-verify"
+version = "0.1.0"
+description = "Verifier for composed verification-state envelopes (RFC 8785 JCS + EdDSA/ES256 JWS). Canonicalization is byte-identical to the production Node canonicalizer. Supersedes agentoracle-receipt-verify 0.1.0."
+authors = [{ name = "Joe Krausz", email = "joe@tanilo.io" }]
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.9"
+dependencies = [
+  "cryptography>=42.0.0"
+]
+
+[project.urls]
+Homepage = "https://tanilo.io"
+Repository = "https://github.com/TKCollective/tanilo-receipt-verify"
+
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"

@@ -1,0 +1,38 @@
+{
+  "https://agentoracle.co/.well-known/jwks.json": {
+    "keys": [
+      {
+        "crv": "Ed25519",
+        "x": "2Efot7Ae74yp8yjv1L0rbS_KCfcjuS4xp_O11pcEEPQ",
+        "kty": "OKP",
+        "kid": "ao-receipt-2026-04-ed25519-f2753b7c",
+        "alg": "EdDSA",
+        "use": "sig"
+      },
+      {
+        "crv": "Ed25519",
+        "x": "FxtN-CSBgykTp3BgFxRrAkxNURIwnmSfRTwfvXBmBSo",
+        "kty": "OKP",
+        "kid": "ao-composed-2026-06-ed25519-c3abfce3",
+        "alg": "EdDSA",
+        "use": "sig"
+      },
+      {
+        "crv": "Ed25519",
+        "x": "bvi-Q2xWoKIZ_dWdJ5v1BdSzgCYALJKLrXa9Oz7Toio",
+        "kty": "OKP",
+        "kid": "ao-composed-2026-07-ed25519-3d44ba27",
+        "alg": "EdDSA",
+        "use": "sig"
+      },
+      {
+        "crv": "Ed25519",
+        "x": "14OeViTfxu44QsPGfsGxKjClXj4mxuait-ZZwqpTqpw",
+        "kty": "OKP",
+        "kid": "ao-fixture-detached-rfc7797-2026-07-ed25519-0f8bf2a5",
+        "alg": "EdDSA",
+        "use": "sig"
+      }
+    ]
+  }
+}
