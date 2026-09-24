@@ -233,12 +233,86 @@ class VerifyResult:
 
 # ---------- Public verify() ----------
 
+def _is_list_of_dicts(value: Any) -> bool:
+    return isinstance(value, list) and all(isinstance(item, dict) for item in value)
+
+
 def verify(
     envelope: Dict[str, Any],
     jwks_by_issuer: Optional[Dict[str, Dict[str, Any]]] = None,
     jwks_is_complete: bool = False,
 ) -> VerifyResult:
     """Verify an AgentOracle composed envelope.
+
+    This is a thin, never-raising gate in front of `_verify_core`, added in
+    0.1.1 per stillmarcus24's report (tsc#4, 2026-09-24): 0.1.0 raised on 22
+    of 30 malformed envelopes he tested, and an exception is not one of the
+    four states draft-krausz-verification-state-02 Section 3 defines. A
+    caller that catches a traceback cannot tell `contradicted` from
+    `instrument_failure` -- so a verifier that raises has silently opted out
+    of the vocabulary it implements. This function makes that impossible:
+
+    1. Structural validation first. `envelope` must be a dict; the object
+       actually carrying `payload`/`signatures` (either `envelope` itself or
+       `envelope["jws"]`) must be a dict; `payload` must be a string;
+       `signatures` must be a list of dicts. Any violation is a definite,
+       checkable fact about the input's shape -- not an unknown -- so it
+       returns `status="invalid"` with a specific error, same as any other
+       structurally-invalid envelope this verifier already rejected.
+    2. Everything else -- the actual canonicalization, hashing and
+       signature-verification logic in `_verify_core` -- runs inside a
+       broad `except Exception`. Anything unanticipated there returns
+       `status="indeterminate"` with `indeterminate_reason` beginning
+       `"instrument_failure: "`, per Section 3.1's reason code for a check
+       that could not run to completion -- never a raised exception.
+    """
+    if not isinstance(envelope, dict):
+        return VerifyResult(
+            valid=False, status=STATUS_INVALID, canonical_sha256="",
+            errors=[f"envelope must be an object (dict), got {type(envelope).__name__}"],
+        )
+
+    jws_candidate = envelope.get("jws") if "jws" in envelope else envelope
+    if not isinstance(jws_candidate, dict):
+        return VerifyResult(
+            valid=False, status=STATUS_INVALID, canonical_sha256="",
+            errors=[f"envelope['jws'] must be an object (dict), got {type(jws_candidate).__name__}"],
+        )
+
+    payload_candidate = jws_candidate.get("payload")
+    if payload_candidate is not None and not isinstance(payload_candidate, str):
+        return VerifyResult(
+            valid=False, status=STATUS_INVALID, canonical_sha256="",
+            errors=[f"payload must be a string, got {type(payload_candidate).__name__}"],
+        )
+
+    signatures_candidate = jws_candidate.get("signatures", [])
+    if signatures_candidate and not _is_list_of_dicts(signatures_candidate):
+        return VerifyResult(
+            valid=False, status=STATUS_INVALID, canonical_sha256="",
+            errors=["signatures must be a list of objects (dicts); at least one entry was not"],
+        )
+
+    try:
+        return _verify_core(envelope, jwks_by_issuer=jwks_by_issuer, jwks_is_complete=jwks_is_complete)
+    except Exception as e:  # noqa: BLE001 -- intentional: see docstring above
+        return VerifyResult(
+            valid=None, status=STATUS_INDETERMINATE, canonical_sha256="",
+            indeterminate_reason=f"instrument_failure: unhandled {type(e).__name__} during verification: {e}",
+        )
+
+
+def _verify_core(
+    envelope: Dict[str, Any],
+    jwks_by_issuer: Optional[Dict[str, Dict[str, Any]]] = None,
+    jwks_is_complete: bool = False,
+) -> VerifyResult:
+    """Verify an AgentOracle composed envelope.
+
+    Structural validation of `envelope`'s shape already happened in the
+    public `verify()` wrapper above -- this function assumes it, and any
+    exception it raises past that point is caught there and reported as
+    `instrument_failure`, never propagated to the caller.
 
     Args:
         envelope: The composed envelope. May be either the wrapped form

@@ -1,5 +1,49 @@
 # Changelog
 
+## Unreleased — 0.1.1: `verify()` no longer raises
+
+stillmarcus24 (tsc#4, 2026-09-24) threw 30 malformed envelopes at this package
+and got a traceback on 22 of them. His point is about the spec, not just the
+code: an exception is not one of draft-krausz-verification-state-02's four
+states. A caller that catches a traceback cannot tell `contradicted` from
+`instrument_failure` apart -- so a verifier that raises has silently opted out
+of the vocabulary it implements.
+
+All three call sites he named (verify.py:291-293, :363-364, :500) crash on
+some malformed input -- confirmed directly, `signatures=5` (a plain int, not
+a list) with no `jwks_by_issuer` raises `TypeError: 'int' object is not
+iterable` at the `for sig_entry in signatures:` line feeding :500, before its
+inner `try` ever runs. All three are now unreachable in their crashing form.
+
+`verify()` is now a two-stage gate:
+
+1. **Structural validation first.** `envelope` must be an object; the object
+   actually carrying `payload`/`signatures` (itself, or `envelope["jws"]`)
+   must be an object; `payload` must be a string; `signatures` must be a list
+   of objects. Any violation is a definite, checkable fact about the input's
+   shape -- returns `status="invalid"` with a specific error naming what was
+   wrong, same as any other malformed envelope this verifier already rejected.
+2. **Everything else runs inside a broad exception guard.** The real
+   canonicalization and signature-verification logic moved to a private
+   `_verify_core()`; `verify()` calls it inside `try/except Exception` and
+   converts anything unanticipated into `status="indeterminate"` with
+   `indeterminate_reason` beginning `"instrument_failure: "` -- never a raised
+   exception.
+
+No change to any well-formed input's result. All 44 tests from the prior
+release pass unchanged.
+
+**Test coverage:** `tests/test_malformed_never_raises.py` -- 30 malformed-shape
+cases (non-dict envelope, non-dict `jws`, non-string `payload`, non-list or
+list-of-non-dict `signatures`, non-string `protected`/`signature` fields),
+each run under three configurations (no `jwks_by_issuer`, `jwks_by_issuer`
+supplied, `jwks_is_complete=True`) for 90 assertions that `verify()` returns a
+result and never raises. Includes a negative control that reproduces
+stillmarcus24's exact unguarded-`.get()` pattern in isolation and confirms it
+still raises on the same inputs the shipped fix now handles -- proving the fix
+rather than a corpus that would have passed regardless. His own vectors will
+be added, credited, once he publishes them.
+
 ## Unreleased — `jwks_is_complete` parameter
 
 New keyword argument on `verify()`: `jwks_is_complete: bool = False`.

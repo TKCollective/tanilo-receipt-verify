@@ -91,6 +91,24 @@ result = verify(
 
 Credit where it's due: this split converged out of a public thread rather than being invented here. [robertolocatelli81-dev](https://github.com/robertolocatelli81-dev) proposed the same distinction for JWKS lookups as `keys_are_complete` in `cryptovalid-opencore`, and [babyblueviper1](https://github.com/babyblueviper1) shipped the same distinction for a different artifact — a referenced-proof set, not a key set — as `--referenced-set-is-complete` in [preaction-governance-conformance](https://github.com/babyblueviper1/preaction-governance-conformance). Both land on: absent-by-default is an absence, not a judgment; the caller has to declare completeness before a missing entry becomes a refusal. `jwks_is_complete` here is that same shape applied to this package's own JWKS lookup.
 
+## `verify()` never raises
+
+Any input -- not just a well-formed envelope with the wrong content, but a
+non-dict `envelope`, a non-dict `jws`, a non-string `payload`, or a
+`signatures` value that isn't a list of objects -- returns a `VerifyResult`.
+It never raises.
+
+Structurally malformed input (wrong shape, checkable directly) returns
+`status="invalid"` with a specific error. Anything unanticipated deeper in
+the verification logic is caught and returned as `status="indeterminate"`
+with `indeterminate_reason` beginning `"instrument_failure: "` --
+draft-krausz-verification-state-02 Section 3.1's reason code for a check that
+could not run to completion. Either way, a caller gets one of the spec's four
+states back, never a traceback -- per stillmarcus24's report (tsc#4,
+2026-09-24) that 0.1.0 raised on 22 of 30 malformed envelopes he tested, from
+unguarded call sites at the top of `verify()` and inside its signature loop.
+See `CHANGELOG.md` for the full account.
+
 ## Cross-language guarantees
 
 The `tests/` suite includes byte-identical fixtures shared with the Node reference implementation:
