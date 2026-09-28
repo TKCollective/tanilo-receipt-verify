@@ -16,8 +16,8 @@ wording was wrong.
   0.1.1 let past the shape check and reported as "missing payload or
   signatures" even though the member is present.
 - Unchanged: a list with a non-object entry keeps the entry wording, and an
-  absent, `null` or empty `signatures` still reports "missing payload or
-  signatures".
+  absent, `null` or empty-list (`[]`) `signatures` still reports "missing
+  payload or signatures".
 - The status is `invalid` in every case, exactly as in 0.1.1. All 162 existing
   tests, including the well-formed cases, pass unchanged.
 
