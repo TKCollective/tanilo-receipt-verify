@@ -237,6 +237,25 @@ def _is_list_of_dicts(value: Any) -> bool:
     return isinstance(value, list) and all(isinstance(item, dict) for item in value)
 
 
+def _json_type_phrase(value: Any) -> str:
+    """Name a decoded JSON value's type the way a JSON author would ("a string",
+    "an object"), not by its Python class. bool is checked before int because
+    bool is an int subclass in Python."""
+    if isinstance(value, bool):
+        return "a boolean"
+    if isinstance(value, (int, float)):
+        return "a number"
+    if isinstance(value, str):
+        return "a string"
+    if isinstance(value, dict):
+        return "an object"
+    if isinstance(value, list):
+        return "an array"
+    if value is None:
+        return "null"
+    return f"a non-JSON value ({type(value).__name__})"
+
+
 def verify(
     envelope: Dict[str, Any],
     jwks_by_issuer: Optional[Dict[str, Dict[str, Any]]] = None,
@@ -287,6 +306,18 @@ def verify(
         )
 
     signatures_candidate = jws_candidate.get("signatures", [])
+    # 0.1.2: found while running Marcus Still's (stillmarcus24) malformed-input
+    # corpus, and reported on x402-foundation/tsc#4 on 2026-09-26. A present
+    # `signatures` that is not a list at all has no entries, so the list-entry
+    # reason below would describe a problem the input doesn't have. Name its
+    # JSON type instead.
+    # This includes falsy non-lists ("", 0, {}, false), which 0.1.1 let through
+    # to be reported as "missing". Absent, null and [] are still "missing".
+    if signatures_candidate is not None and not isinstance(signatures_candidate, list):
+        return VerifyResult(
+            valid=False, status=STATUS_INVALID, canonical_sha256="",
+            errors=[f"signatures must be a list (JSON array) of signature objects; got {_json_type_phrase(signatures_candidate)}"],
+        )
     if signatures_candidate and not _is_list_of_dicts(signatures_candidate):
         return VerifyResult(
             valid=False, status=STATUS_INVALID, canonical_sha256="",

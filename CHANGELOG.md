@@ -1,6 +1,46 @@
 # Changelog
 
-## Unreleased — 0.1.1: `verify()` no longer raises
+## Unreleased — 0.1.2: accurate reason for a non-list `signatures`; Marcus Still's vectors in the regression suite
+
+**Reason wording.** When `signatures` is present but not a list at all, 0.1.1's
+reason still said "signatures must be a list of objects (dicts); at least one
+entry was not". That input has no entries, so the reason described a problem it
+doesn't have. We found this while running Marcus Still's malformed-input corpus
+and said so on x402-foundation/tsc#4 on 2026-09-26. The status was right; the
+wording was wrong.
+
+- A `signatures` that is a string, number, object or boolean now reports
+  "signatures must be a list (JSON array) of signature objects; got a string"
+  (or "a number", "an object", "a boolean").
+- This also covers falsy non-list values (`""`, `0`, `{}`, `false`), which
+  0.1.1 let past the shape check and reported as "missing payload or
+  signatures" even though the member is present.
+- Unchanged: a list with a non-object entry keeps the entry wording, and an
+  absent, `null` or empty `signatures` still reports "missing payload or
+  signatures".
+- The status is `invalid` in every case, exactly as in 0.1.1. All 162 existing
+  tests, including the well-formed cases, pass unchanged.
+
+**Regression suite: Marcus Still's (stillmarcus24) 15 malformed-input
+vectors.** They come from babyblueviper1/preaction-governance-conformance pull
+request #7, commit `ac90da4e1d35fe7f840add20544cc33d123a4ff9` (merged as
+`1f7cf09`), `corpus/phase1/stillmarcus24-malformed-input/`, under CC0 1.0. They
+are copied byte-identical into `tests/fixtures/stillmarcus24-malformed-input/`,
+with a NOTICE giving source and credit. `tests/test_stillmarcus24_corpus.py`
+checks, for every vector:
+
+- that `verify()` returns and never raises, with no key set, with a key set, and
+  with `jwks_is_complete=True`;
+- that the status is one his `expected.json` allows;
+- that the status equals his as-run reference for 0.1.1.
+
+It also pins the fixture files' SHA-256 to the source commit.
+
+**Tests:** 241 pass, none raises. That is the 162 from 0.1.1 plus 14 reason
+tests (`tests/test_signatures_type_reason.py`) and 65 corpus tests. The reason
+test fails on 0.1.1 (9 of its 14 cases) and passes on 0.1.2.
+
+## 0.1.1 — 2026-09-24: `verify()` no longer raises
 
 stillmarcus24 (tsc#4, 2026-09-24) threw 30 malformed envelopes at this package
 and got a traceback on 22 of them. His point is about the spec, not just the
