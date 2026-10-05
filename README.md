@@ -109,6 +109,35 @@ states back, never a traceback -- per stillmarcus24's report (tsc#4,
 unguarded call sites at the top of `verify()` and inside its signature loop.
 See `CHANGELOG.md` for the full account.
 
+## Anchor check: proof of when (in preparation for 0.2.0)
+
+A receipt's signature shows which key signed it. An anchor adds one thing: the
+receipt's canonical bytes existed no later than a public block's time.
+`verify_anchor` checks a `tanilo.anchor.v1` proof for a receipt. It is separate
+from `verify()` and does not change a signature result.
+
+```python
+from tanilo_receipt_verify import verify, verify_anchor, evm_contract_lookup
+
+r = verify(envelope, jwks_by_issuer={...})
+lookup = evm_contract_lookup(
+    "https://rpc.testnet3.goat.network",
+    trusted_contracts=["0x801fB569593ae8fd9E906059cA6d9e584F4Bc30b"],  # the contract you trust
+    chain_id=48816,
+)
+a = verify_anchor(r.canonical_sha256, proof, {"evm-contract": lookup})
+print(a.status, a.anchored_at)   # "anchored" | "not_anchored" | "indeterminate"
+```
+
+- Without a lookup, a proof whose path verifies is `indeterminate`, not
+  `anchored`: the path alone does not show the root was published.
+- You list the contract addresses you trust. A proof that names another
+  contract is `indeterminate`.
+- `verify_anchor` makes no network call itself; the lookup makes two JSON-RPC
+  calls when you pass it in. It never raises.
+- The example uses a testnet contract. Testnets can be reset; a proof that
+  points at a reset chain can no longer be confirmed.
+
 ## Cross-language guarantees
 
 The `tests/` suite includes byte-identical fixtures shared with the Node reference implementation:

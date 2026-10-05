@@ -21,6 +21,10 @@ Public API:
     jcs(v) -> str
     sha256_hex(s: str) -> str
     recompute_decision_ref(decision_ref_slot: dict) -> str
+
+Anchor check (proof of when), in ``tanilo_receipt_verify.anchor``:
+    verify_anchor(canonical_sha256: str, proof: dict, lookups: dict | None) -> AnchorResult
+    evm_contract_lookup(rpc_url, trusted_contracts, chain_id=None) -> lookup
 """
 
 from .verify import (
@@ -34,7 +38,12 @@ from .verify import (
     STATUS_INDETERMINATE,
 )
 
+from .anchor import verify_anchor, evm_contract_lookup, AnchorResult
+
 __all__ = [
+    "verify_anchor",
+    "evm_contract_lookup",
+    "AnchorResult",
     "verify",
     "jcs",
     "sha256_hex",
