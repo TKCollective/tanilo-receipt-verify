@@ -21,7 +21,9 @@ from tanilo_receipt_verify import verify_anchor, evm_contract_lookup, AnchorResu
 from tanilo_receipt_verify.anchor import root_from_proof  # noqa: E402
 
 VECTORS = json.loads((pathlib.Path(__file__).parent / "fixtures" / "anchor" / "merkle-proofs.json").read_text())
-CONTRACT = "0x801fB569593ae8fd9E906059cA6d9e584F4Bc30b"
+CONTRACT = "0x821b832D25d8E18BD3A761B935bfaf1c2F761D58"          # current testnet3 contract
+RETIRED = "0x801fB569593ae8fd9E906059cA6d9e584F4Bc30b"           # first testnet3 contract; one batch, kept as a historical example
+HIST = sorted((pathlib.Path(__file__).parent / "fixtures" / "anchor" / "historical-testnet3-2026-10-05").glob("*.anchor.json"))
 OTHER = "0x000000000000000000000000000000000000dEaD"
 
 
@@ -248,6 +250,42 @@ def test_record_without_contract_or_chain_is_indeterminate(chain, over):
     c = chain(anchored={(CONTRACT.lower(), P["root"]): 1791169200})
     r = verify_anchor(H, with_anchor(P, **over), {"evm-contract": evm_contract_lookup(c.url, [CONTRACT])})
     assert r.status == "indeterminate"
+
+
+# ── the historical testnet3 batch (retired contract) ────────────────
+
+HIST_ROOT = "bc014ab6e6295dbf4eaa685e23df922cb555ecc830aff3b846e35672bd3f9599"
+HIST_TIME = 1791168333  # 2026-10-05T02:45:33Z, the contract's anchoredAt for that root
+
+
+def test_three_historical_proofs_are_present():
+    assert len(HIST) == 3
+
+
+@pytest.mark.parametrize("f", HIST, ids=lambda f: f.name)
+def test_historical_proof_path_still_verifies(f):
+    proof = json.loads(f.read_text())
+    r = verify_anchor(proof["leaf"], proof)
+    assert r.status == "indeterminate" and r.merkle_ok is True and r.root == HIST_ROOT
+    assert [a["kind"] for a in proof["anchors"]] == ["evm-contract", "opentimestamps"]
+    assert proof["anchors"][0]["contract"] == RETIRED
+
+
+@pytest.mark.parametrize("f", HIST, ids=lambda f: f.name)
+def test_historical_proof_is_anchored_when_the_retired_contract_is_trusted(chain, f):
+    proof = json.loads(f.read_text())
+    c = chain(anchored={(RETIRED.lower(), HIST_ROOT): HIST_TIME})
+    r = verify_anchor(proof["leaf"], proof, {"evm-contract": evm_contract_lookup(c.url, [CONTRACT, RETIRED], chain_id=48816)})
+    assert r.status == "anchored" and r.anchored_at == "2026-10-05T02:45:33Z"
+    # The second entry is a kind this checker does not know: indeterminate, not a failure.
+    assert [a["status"] for a in r.anchors] == ["confirmed", "indeterminate"]
+
+
+def test_historical_proof_is_indeterminate_when_only_the_current_contract_is_trusted(chain):
+    proof = json.loads(HIST[0].read_text())
+    c = chain(anchored={(RETIRED.lower(), HIST_ROOT): HIST_TIME})
+    r = verify_anchor(proof["leaf"], proof, {"evm-contract": evm_contract_lookup(c.url, [CONTRACT])})
+    assert r.status == "indeterminate" and c.calls == []
 
 
 def test_no_network_without_a_lookup(monkeypatch):

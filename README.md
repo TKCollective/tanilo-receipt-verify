@@ -122,7 +122,7 @@ from tanilo_receipt_verify import verify, verify_anchor, evm_contract_lookup
 r = verify(envelope, jwks_by_issuer={...})
 lookup = evm_contract_lookup(
     "https://rpc.testnet3.goat.network",
-    trusted_contracts=["0x801fB569593ae8fd9E906059cA6d9e584F4Bc30b"],  # the contract you trust
+    trusted_contracts=["0x821b832D25d8E18BD3A761B935bfaf1c2F761D58"],  # the contract you trust
     chain_id=48816,
 )
 a = verify_anchor(r.canonical_sha256, proof, {"evm-contract": lookup})

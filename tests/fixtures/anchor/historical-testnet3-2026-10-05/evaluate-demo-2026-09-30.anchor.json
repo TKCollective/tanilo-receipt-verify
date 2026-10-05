@@ -1,0 +1,44 @@
+{
+  "anchor_version": "tanilo.anchor.v1",
+  "leaf": "sha256-608f91ecf5f397dc1e02ed6dd1924288bb466dcff918c310f6abf29c91d308c9",
+  "leaf_hash_alg": "rfc6962-sha256",
+  "leaf_index": 0,
+  "tree_size": 3,
+  "path": [
+    "f545beac8cfbd6e10c2c985502efd5d99ed66bb6150c1002114a0528c2a7edbd",
+    "fa59a3a0cf57b654a5394f918d474b70c358f59da4d6dc548bdee9b3b4822cf1"
+  ],
+  "root": "bc014ab6e6295dbf4eaa685e23df922cb555ecc830aff3b846e35672bd3f9599",
+  "batch_id": "batch-2026-10-05T02-45-30-174Z-12c38687",
+  "batched_at": "2026-10-05T02:45:30.175Z",
+  "anchors": [
+    {
+      "kind": "evm-contract",
+      "chain": "eip155:48816",
+      "chain_id": 48816,
+      "contract": "0x801fB569593ae8fd9E906059cA6d9e584F4Bc30b",
+      "publisher": "0x4151115C0C7c40a9F79d4e91d9F81986CeF5657c",
+      "tx_hash": "0xdd231627808cee501127efb5627235debefe610522bf8dec9c488c7cde6d0492",
+      "block_number": 17232424,
+      "block_hash": "0x9e54503f4d4110c405ef5a696c88e69f1cc474c2dda2a1bdd1f8997c52c10662",
+      "block_time": "2026-10-05T02:45:33.000Z",
+      "gas_used": "71804",
+      "effective_gas_price_wei": "130007",
+      "fee_native": "0.000000009335022628",
+      "explorer_tx": "https://explorer.testnet3.goat.network/tx/0xdd231627808cee501127efb5627235debefe610522bf8dec9c488c7cde6d0492"
+    },
+    {
+      "kind": "opentimestamps",
+      "digest_alg": "sha256",
+      "calendars": [
+        "https://a.pool.opentimestamps.org",
+        "https://b.pool.opentimestamps.org",
+        "https://a.pool.eternitywall.com",
+        "https://ots.btc.catallaxy.com"
+      ],
+      "submitted_at": "2026-10-05T02:45:38.863Z",
+      "status": "pending",
+      "ots_base64": "AE9wZW5UaW1lc3RhbXBzAABQcm9vZgC/ieLohOiSlAEIvAFKtuYpXb9OqmheI9+SLLVV7Mgwr/O4RuNWcr0/lZnwEPNEr+jKXnhbYsPsPilB19UI//AIJCNar46DPlcI8BCU2/d0xeR9sTia3MTy9XOdCPAgRVH/hBLzluuFON1maFseThQinQlt8gli80tq4F7Yv2UI8CAcDgexQ5U7BOgSDKynth8d85iHIm4i+09eu9AW88SHIwjwILawy549dz2+IiGy13NHUM4owWdKp7a6/XPV3selcaIuCPEEasMPUPAI5lt354DhvEwAg9/jDS75DI4uLWh0dHBzOi8vYWxpY2UuYnRjLmNhbGVuZGFyLm9wZW50aW1lc3RhbXBzLm9yZ//wCN1PDcFa9GNECPAQei+hiWMxeeBrdsOtgitgCwjxIJ0lIATNMBE8ClvgmkdD7cpCUr2Nx8AmX7Uw6N7D5OqvCPAgAXY8AFi7RzZn0BqFVhP+2TrMftfAEsPp+VTCXaXGbh4I8QRqww9P8Ah3UjkUw6HtswCD3+MNLvkMjiwraHR0cHM6Ly9ib2IuYnRjLmNhbGVuZGFyLm9wZW50aW1lc3RhbXBzLm9yZ//wEM6B3eMvXcd9uv3778gy6PAI8SDB1aqnOyVoWYEF08elEmPdLXXxO0ql7H8WKIpxUnPedQjwIAnJZnQf4oICXn3X4Qjoa1vf+p8FDcGf45i7NO5W060BCPAgHOOGhxv6Vpggq8hnqibX1lysWOoNe+pO+9oP1Sl2TcQI8QRqww9Q8Ah2PxfXliFW8wCD3+MNLvkMjikoaHR0cHM6Ly9maW5uZXkuY2FsZW5kYXIuZXRlcm5pdHl3YWxsLmNvbfAQZqqo6vLqUIeHMF6pTeULCAjwIOsiIPP1JiuEcKjY62uYSH6jwGlIpxPKhvcaqCV5W7tACPAgzBQ/f/GxKhFZgGQgOwxG9K/ZNlcmS32LPNZXoFkJX/UI8QRqww9Q8AhpWb++tjCEPACD3+MNLvkMjiMiaHR0cHM6Ly9idGMuY2FsZW5kYXIuY2F0YWxsYXh5LmNvbQ=="
+    }
+  ]
+}
