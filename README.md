@@ -1,6 +1,6 @@
 # tanilo-receipt-verify
 
-Verifier for composed verification-state envelopes: RFC 8785 JCS canonicalization plus EdDSA/ES256 JWS signature verification. Canonicalization output is byte-identical to the production Node canonicalizer.
+Verifier for composed verification-state envelopes: RFC 8785 JCS canonicalization plus EdDSA/ES256 JWS signature verification. Canonicalization output matches the Node reference on the shared fixtures and supported receipt-number ranges; see the number-formatting limitation below.
 
 **JCS number formatting:** this implementation's number serialization matches RFC 8785 for the value ranges receipt fields actually use (small integers and simple decimals) — it does not implement the full RFC 8785 §3.2.2.3 ECMAScript-compatible number-to-string algorithm across every double (extreme exponents, `-0`, etc.). If a future receipt field ever carries a number outside that range, re-verify canonicalization against the Node reference before trusting a byte-identical claim for it.
 
@@ -103,13 +103,14 @@ Structurally malformed input (wrong shape, checkable directly) returns
 the verification logic is caught and returned as `status="indeterminate"`
 with `indeterminate_reason` beginning `"instrument_failure: "` --
 draft-krausz-verification-state-02 Section 3.1's reason code for a check that
-could not run to completion. Either way, a caller gets one of the spec's four
-states back, never a traceback -- per stillmarcus24's report (tsc#4,
+could not run to completion. Either way, a caller receives a VerifyResult with status valid, invalid or
+indeterminate; these are verifier statuses, not the draft's four claim states;
+never a traceback -- per stillmarcus24's report (tsc#4,
 2026-09-24) that 0.1.0 raised on 22 of 30 malformed envelopes he tested, from
 unguarded call sites at the top of `verify()` and inside its signature loop.
 See `CHANGELOG.md` for the full account.
 
-## Anchor check: proof of when (0.2.0)
+## Anchor check: a time bound on the payload (0.2.0)
 
 A receipt's signature shows which key signed it. An anchor adds one thing: the
 receipt's canonical payload existed no later than the timestamp of a public
