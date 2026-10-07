@@ -1,8 +1,8 @@
 """Tanilo composed-envelope verifier.
 
 Supersedes agentoracle-receipt-verify 0.1.0 (see CHANGELOG.md for the AC-11
-fix this release adds). Canonicalization is byte-identical to the production
-Node canonicalizer.
+fix this release adds). Canonicalization matches the Node reference on the
+shared fixtures and supported receipt-number ranges.
 Design notes (must not drift):
 
 1. JCS sort order — RFC 8785 requires UTF-16 code-unit sort. In Node we use

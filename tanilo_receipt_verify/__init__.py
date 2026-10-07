@@ -1,8 +1,9 @@
 """Tanilo composed-envelope verifier (Python).
 
 Canonicalizes with RFC 8785 JCS, verifies Ed25519 JWS signatures against
-supplied JWKS, and checks recompute-invariants. JCS output and SHA-256 are
-byte-identical to the production Node canonicalizer; see tests/.
+supplied JWKS, and checks recompute-invariants. JCS output and SHA-256 match
+the Node reference on the shared fixtures and supported receipt-number ranges;
+see tests/.
 
 IMPORTANT: `verify()` requires `jwks_by_issuer` to reach a valid/invalid
 verdict. Called without key material on a signed envelope it returns
