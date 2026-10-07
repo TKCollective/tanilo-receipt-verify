@@ -1,0 +1,58 @@
+{
+  "keys": [
+    {
+      "crv": "Ed25519",
+      "x": "K07iWSp_Wrtj5t9F3DAU4wtvY-EAMqnHads-vxCuFrs",
+      "kty": "OKP",
+      "kid": "tanilo-2026-10-ed25519-7d885da9",
+      "alg": "EdDSA",
+      "use": "sig",
+      "role": "evaluated",
+      "tanilo_status": "current",
+      "tanilo_note": "Tanilo's signing key. Signs /evaluate and /v1/verify-facts receipts; both routes run the check themselves and neither signs a verdict supplied by the caller. role: evaluated."
+    },
+    {
+      "crv": "Ed25519",
+      "x": "FxtN-CSBgykTp3BgFxRrAkxNURIwnmSfRTwfvXBmBSo",
+      "kty": "OKP",
+      "kid": "ao-composed-2026-06-ed25519-c3abfce3",
+      "alg": "EdDSA",
+      "use": "sig",
+      "tanilo_status": "retired",
+      "tanilo_retired_at": "2026-10-02",
+      "tanilo_note": "Retired when Tanilo's key went live; kept published so existing signatures under it can still be checked (rotation alone does not invalidate them; receipt validity, freshness and relying-party acceptance remain separate checks). From 23 June to 28 August 2026 it also signed caller-supplied bytes through routes since closed, so a signature alone does not show the service issued the payload. No role: it signed both evaluated receipts and caller-supplied bytes, so its signatures resolve to issuance-path role unknown, which is separate from signature validity."
+    },
+    {
+      "crv": "Ed25519",
+      "x": "bvi-Q2xWoKIZ_dWdJ5v1BdSzgCYALJKLrXa9Oz7Toio",
+      "kty": "OKP",
+      "kid": "ao-composed-2026-07-ed25519-3d44ba27",
+      "alg": "EdDSA",
+      "use": "sig",
+      "role": "bytes_attested",
+      "tanilo_status": "retired",
+      "tanilo_retired_at": "2026-09-24",
+      "tanilo_note": "Signed only the API gateway's withdrawn /v1/compose route (verdicts supplied by the caller). Its private key was deleted on 2026-09-24. Signatures prove the bytes are unchanged, not that anything was evaluated. role: bytes_attested."
+    },
+    {
+      "crv": "Ed25519",
+      "x": "2Efot7Ae74yp8yjv1L0rbS_KCfcjuS4xp_O11pcEEPQ",
+      "kty": "OKP",
+      "kid": "ao-receipt-2026-04-ed25519-f2753b7c",
+      "alg": "EdDSA",
+      "use": "sig",
+      "tanilo_status": "legacy",
+      "tanilo_note": "v0.1 receipt format. Signed the attached sample receipt in the spec repo. We found no signing path for it in the current service code. No role: its full signing history is not established."
+    },
+    {
+      "crv": "Ed25519",
+      "x": "14OeViTfxu44QsPGfsGxKjClXj4mxuait-ZZwqpTqpw",
+      "kty": "OKP",
+      "kid": "ao-fixture-detached-rfc7797-2026-07-ed25519-0f8bf2a5",
+      "alg": "EdDSA",
+      "use": "sig",
+      "tanilo_status": "fixture",
+      "tanilo_note": "Test fixture; its private key is published in the spec repo. A signature from it proves nothing about issuance. No role: anyone can sign with it."
+    }
+  ]
+}

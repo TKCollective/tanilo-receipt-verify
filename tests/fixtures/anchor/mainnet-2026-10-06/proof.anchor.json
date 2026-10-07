@@ -1,0 +1,30 @@
+{
+  "anchor_version": "tanilo.anchor.v1",
+  "leaf": "sha256-67d3ddb5888ac75266974c3277987556fe5a36df97d32d014f6a5f279384c51f",
+  "leaf_hash_alg": "rfc6962-sha256",
+  "leaf_index": 4,
+  "tree_size": 5,
+  "path": [
+    "8743b89ca3a36611687e29273406bf3589e15e0e35c4e0e50b4700f49f6129ea"
+  ],
+  "root": "326302795a1ce8be3447e02a30158e43b0ab7bded209eaeb3036cff340318bc7",
+  "batch_id": "batch-326302795a1ce8be3447e02a30158e43",
+  "batched_at": "2026-10-06T00:36:54.707Z",
+  "anchors": [
+    {
+      "kind": "evm-contract",
+      "chain": "eip155:2345",
+      "chain_id": 2345,
+      "contract": "0xddCC4eb18b39a520b874046b91b748B5E8cE7C54",
+      "publisher": "0x1C17bde3592DEa74Ef18c74061BF0E77E300aF96",
+      "tx_hash": "0x8d5d2db89fe694d1b04c98f72bdf961876008b79bb1c6864047025984233ffce",
+      "block_number": 15874006,
+      "block_hash": "0xb24f9803534067d8461b9df432feeb0106900212bab328e77b27921feb774466",
+      "block_time": "2026-10-06T00:36:56.000Z",
+      "gas_used": "71792",
+      "effective_gas_price_wei": "130007",
+      "fee_native": "0.000000009333462544",
+      "explorer_tx": "https://explorer.goat.network/tx/0x8d5d2db89fe694d1b04c98f72bdf961876008b79bb1c6864047025984233ffce"
+    }
+  ]
+}

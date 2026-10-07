@@ -109,34 +109,70 @@ states back, never a traceback -- per stillmarcus24's report (tsc#4,
 unguarded call sites at the top of `verify()` and inside its signature loop.
 See `CHANGELOG.md` for the full account.
 
-## Anchor check: proof of when (in preparation for 0.2.0)
+## Anchor check: proof of when (0.2.0)
 
 A receipt's signature shows which key signed it. An anchor adds one thing: the
-receipt's canonical bytes existed no later than a public block's time.
-`verify_anchor` checks a `tanilo.anchor.v1` proof for a receipt. It is separate
-from `verify()` and does not change a signature result.
+receipt's canonical payload existed no later than the timestamp of a public
+block. `verify_anchor` checks a `tanilo.anchor.v1` proof for a receipt. It is
+separate from `verify()` and never changes a signature result.
+
+What an anchor shows: the canonical payload existed by the anchoring block's
+timestamp, assuming SHA-256 behaves as designed and the chain's record of that
+block and its timestamp is what it appears to be. What it does not show: when
+the signature was made or the receipt issued (the payload may be older than
+the block, and a signature over it can be made at any time); which key signed
+it (the signature shows that, and associating the key with an issuer requires
+a key set you have authenticated as the issuer's); or that the claim in the
+receipt is true. Anchor status is reported beside signature validity, never
+folded into it.
+
+This is the live example from [tanilo.io/docs/anchoring](https://tanilo.io/docs/anchoring):
+a test receipt issued on 2026-10-06, anchored on GOAT Network (`eip155:2345`).
 
 ```python
+import json
 from tanilo_receipt_verify import verify, verify_anchor, evm_contract_lookup
 
-r = verify(envelope, jwks_by_issuer={...})
-lookup = evm_contract_lookup(
-    "https://rpc.testnet3.goat.network",
-    trusted_contracts=["0x821b832D25d8E18BD3A761B935bfaf1c2F761D58"],  # the contract you trust
-    chain_id=48816,
-)
+CONTRACT = "0xddCC4eb18b39a520b874046b91b748B5E8cE7C54"   # the contract you trust
+
+receipt = json.load(open("receipt.json"))
+jwks = json.load(open("jwks.json"))      # a key set you have authenticated as the issuer's
+proof = json.load(open("proof.json"))["proof"]
+
+# 1. The signature, and the hash recomputed from the signed payload.
+r = verify(receipt, jwks_by_issuer={"https://tanilo.io/.well-known/jwks.json": jwks})
+assert r.status == "valid"
+
+# 2. Offline: the path from the verifier's hash (never the proof's own leaf) to the root.
+print(verify_anchor(r.canonical_sha256, proof).merkle_ok)          # True
+
+# 3. Against the chain: when the trusted contract says that root was anchored.
+lookup = evm_contract_lookup("https://rpc.goat.network", trusted_contracts=[CONTRACT], chain_id=2345)
 a = verify_anchor(r.canonical_sha256, proof, {"evm-contract": lookup})
-print(a.status, a.anchored_at)   # "anchored" | "not_anchored" | "indeterminate"
+print(a.status, a.anchored_at)                                      # anchored 2026-10-06T00:36:56Z
 ```
 
+The receipt, the proof and the commands that fetch them are on the documentation
+page; the same files are in `tests/fixtures/anchor/mainnet-2026-10-06/`.
+
+- Three outcomes, never a raise: `anchored`, `not_anchored`, `indeterminate`.
 - Without a lookup, a proof whose path verifies is `indeterminate`, not
-  `anchored`: the path alone does not show the root was published.
+  `anchored`: the path alone does not show the root was published anywhere.
 - You list the contract addresses you trust. A proof that names another
-  contract is `indeterminate`.
+  contract is `indeterminate`, because an unknown contract could report any
+  time it likes. An RPC on a different chain, an unreachable RPC or an
+  unexpected answer is `indeterminate`. A trusted contract that does not hold
+  the root is `not_anchored`.
 - `verify_anchor` makes no network call itself; the lookup makes two JSON-RPC
-  calls when you pass it in. It never raises.
-- The example uses a testnet contract. Testnets can be reset; a proof that
-  points at a reset chain can no longer be confirmed.
+  calls (`eth_chainId`, `eth_call` of `anchoredAt(bytes32)`) when you pass it in.
+- Pass the hash your verifier recomputed, not the proof's own `leaf`. The anchor
+  check does not check the signature or that a hash belongs to the receipt you hold.
+- The lookup reads the contract's current `anchoredAt(root)` as the RPC endpoint
+  reports it. It does not verify the transaction details carried in the proof
+  and does not establish finality.
+- A proof that points at a testnet which was since reset can no longer be
+  confirmed; the three proofs of the first testnet3 batch are kept as test
+  fixtures with their retired contract for that reason.
 
 ## Cross-language guarantees
 
@@ -145,6 +181,7 @@ The `tests/` suite includes byte-identical fixtures shared with the Node referen
 - `test_jcs_byte_identical_to_node` — Python JCS output byte-matches Node output for a payload with nested objects, arrays, unicode, booleans, and integers.
 - `test_decision_ref_recompute_babyblueviper1` — Python recomputes the shipped [invinoveritas fixture](https://github.com/babyblueviper1/preaction-governance-conformance/tree/3e54ee2/examples/decision-ref-recompute), byte-identical to her Python and our Node.
 - `test_conformance_sample_canonical_hash` — reproduces the canonical hash from the production `/v1/conformance/sample` endpoint.
+- `tests/test_anchor.py` — the Python anchor check reaches the same answer as the Node implementation in [TKCollective/tanilo-anchor](https://github.com/TKCollective/tanilo-anchor) on all 78 valid and 15 invalid RFC 6962 vectors (`tests/fixtures/anchor/merkle-proofs.json`, byte-identical copy, CC0-1.0).
 
 ## License
 

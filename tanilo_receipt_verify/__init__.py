@@ -22,9 +22,10 @@ Public API:
     sha256_hex(s: str) -> str
     recompute_decision_ref(decision_ref_slot: dict) -> str
 
-Anchor check (proof of when), in ``tanilo_receipt_verify.anchor``:
+Anchor check (proof of when), new in 0.2.0, in ``tanilo_receipt_verify.anchor``:
     verify_anchor(canonical_sha256: str, proof: dict, lookups: dict | None) -> AnchorResult
     evm_contract_lookup(rpc_url, trusted_contracts, chain_id=None) -> lookup
+The signature verifier above is unchanged from 0.1.2.
 """
 
 from .verify import (
@@ -53,4 +54,4 @@ __all__ = [
     "STATUS_INVALID",
     "STATUS_INDETERMINATE",
 ]
-__version__ = "0.1.2"
+__version__ = "0.2.0"
