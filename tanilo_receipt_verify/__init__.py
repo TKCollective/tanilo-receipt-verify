@@ -41,8 +41,13 @@ from .verify import (
 )
 
 from .anchor import verify_anchor, evm_contract_lookup, AnchorResult
+from .mapping import mapping_policy, MappingPolicy, TANILO_MAPPINGS, TANILO_MAPPING_CUTOVER_AT
 
 __all__ = [
+    "mapping_policy",
+    "MappingPolicy",
+    "TANILO_MAPPINGS",
+    "TANILO_MAPPING_CUTOVER_AT",
     "verify_anchor",
     "evm_contract_lookup",
     "AnchorResult",
@@ -55,4 +60,4 @@ __all__ = [
     "STATUS_INVALID",
     "STATUS_INDETERMINATE",
 ]
-__version__ = "0.2.0"
+__version__ = "0.2.1"
