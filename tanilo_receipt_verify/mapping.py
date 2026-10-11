@@ -14,11 +14,14 @@ Tanilo's published documents (both immutable):
 
 - ``agentoracle-v0.3-2026-05-30``,
   sha256 ``0a78263976790df6e76cd9f3f441bf5a3b5c3a82e346b5aca43e49626881d7b0``,
-  receipts signed before 2026-10-13T00:00:00Z;
+  receipts signed before the cutover on 13 October 2026 (UTC), byte for byte unchanged;
 - ``tanilo-v0.3-2026-10-13``,
   sha256 ``52842536d5c8444b6add8e8cb7e8987aa3fcc0bf40cc7ac266ddc1744f0711ce``,
-  receipts signed from 2026-10-13T00:00:00Z. Same rules; only ``mapping_id``,
-  ``issuer``, ``resolution`` and ``published`` differ.
+  receipts signed after it. Same rules; only ``mapping_id``, ``issuer``,
+  ``resolution`` and ``published`` differ. Rely on ``mapping_id`` and ``mapping_hash``
+  rather than the signing date to tell receipts apart; the time rule below is a
+  relying-party policy, not a validity check. ``TANILO_MAPPING_CUTOVER_AT`` is the
+  instant the deployment serving the new document began (planned 2026-10-13T00:00:00Z).
 """
 from __future__ import annotations
 
