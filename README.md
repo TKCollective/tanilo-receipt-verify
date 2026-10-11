@@ -175,6 +175,17 @@ page; the same files are in `tests/fixtures/anchor/mainnet-2026-10-06/`.
   confirmed; the three proofs of the first testnet3 batch are kept as test
   fixtures with their retired contract for that reason.
 
+
+## Which mapping document a receipt binds to (0.2.1)
+
+```python
+from tanilo_receipt_verify import mapping_policy
+p = mapping_policy(receipt)            # Tanilo's two published documents by default
+print(p.status, p.mapping_id, p.mapping_hash, p.signed_at, p.notes)
+```
+
+`known`, `unknown`, `legacy_after_cutover` or `absent`. Informative only: it never raises and does not change `verify()`'s status. Receipts signed before the cutover on 13 October 2026 (UTC) carry `agentoracle-v0.3-2026-05-30`; receipts signed after it carry `tanilo-v0.3-2026-10-13` (same rules, Tanilo identifier). Rely on `mapping_id` and `mapping_hash` rather than the signing date to tell them apart.
+
 ## Cross-language guarantees
 
 The `tests/` suite includes byte-identical fixtures shared with the Node reference implementation:

@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.2.1 — 2026-10-13: `mapping_policy`, an informative mapping-document helper
+
+**New module `tanilo_receipt_verify.mapping`** (standard library only). `verify()` and
+`verify_anchor()` are unchanged; all existing tests pass unmodified.
+
+- `mapping_policy(envelope, known_mappings=None, cutover_at=…, legacy_mapping_ids=…)`
+  reports a receipt's `v_gate.mapping_id`, `v_gate.mapping_hash` and `signed_at`, says
+  whether the hash is one of the known documents, and flags a legacy identifier on a
+  receipt signed after the cutover as `legacy_after_cutover`. Statuses: `known`,
+  `unknown`, `legacy_after_cutover`, `absent`. It never raises and never changes
+  `verify()`'s status: a receipt with an unrecognised or legacy mapping is a fact for
+  the relying party's policy, not an invalid signature.
+- Defaults name Tanilo's two published mapping documents: `agentoracle-v0.3-2026-05-30`
+  (sha256 `0a78263976790df6e76cd9f3f441bf5a3b5c3a82e346b5aca43e49626881d7b0`, receipts
+  signed before the cutover on 13 October 2026 (UTC), byte for byte unchanged) and
+  `tanilo-v0.3-2026-10-13` (sha256
+  `52842536d5c8444b6add8e8cb7e8987aa3fcc0bf40cc7ac266ddc1744f0711ce`, receipts signed
+  after it). The two differ only in `mapping_id`, `issuer`, `resolution` and
+  `published`; rely on `mapping_id` and `mapping_hash` rather than the signing date to
+  tell receipts apart. `TANILO_MAPPING_CUTOVER_AT` is the instant the deployment
+  serving the new document began (planned `2026-10-13T00:00:00Z`).
+- Tests: `tests/test_mapping_policy.py` (seven cases, including that the helper is
+  separate from `verify()` and that the time rule can be disabled).
+
 ## 0.2.0 — 2026-10-07: anchor check (a time bound on the payload)
 
 **New module `tanilo_receipt_verify.anchor`** (standard library only). The
