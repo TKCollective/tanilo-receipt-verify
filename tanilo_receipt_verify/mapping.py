@@ -46,7 +46,7 @@ TANILO_MAPPINGS: Dict[str, str] = {
 TANILO_LEGACY_MAPPING_IDS = ("agentoracle-v0.3-2026-05-30",)
 TANILO_MAPPING_CUTOVER_AT = "2026-10-13T00:00:00Z"   # a configured policy threshold, planned for 2026-10-13T00:00:00Z
 
-_INSTANT_RE = re.compile(r"^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,3}))?Z$")
+_INSTANT_RE = re.compile(r"^([0-9]{4})-([0-9]{2})-([0-9]{2})T([0-9]{2}):([0-9]{2}):([0-9]{2})(?:\.([0-9]{1,3}))?Z$")   # ASCII digits only
 _B64URL_RE = re.compile(r"[A-Za-z0-9_-]*")
 
 
@@ -85,6 +85,10 @@ class _DuplicateMember(ValueError):
     pass
 
 
+def _reject_json_constant(name: str):
+    raise ValueError(f"non-finite JSON number {name} is not allowed")
+
+
 def _no_duplicate_members(pairs):
     obj: Dict[str, Any] = {}
     for k, v in pairs:
@@ -112,7 +116,7 @@ def _payload_of(envelope: Any) -> "tuple[Optional[Dict[str, Any]], Optional[str]
         except (binascii.Error, ValueError) as e:
             return None, f"payload base64url decoding failed: {e}"
         try:
-            obj = json.loads(data.decode("utf-8"), object_pairs_hook=_no_duplicate_members)
+            obj = json.loads(data.decode("utf-8"), object_pairs_hook=_no_duplicate_members, parse_constant=_reject_json_constant)
         except _DuplicateMember as e:
             return None, f"payload JSON rejected: {e}"
         except (UnicodeDecodeError, ValueError) as e:
@@ -124,20 +128,21 @@ def _payload_of(envelope: Any) -> "tuple[Optional[Dict[str, Any]], Optional[str]
         return None, f"payload could not be decoded: {type(e).__name__}"
 
 
-def _configuration_error(known: Any, legacy: Any, cutover_at: Any) -> Optional[str]:
+def _configuration_error(known: Any, legacy: Any, cutover_at: Any) -> "tuple[Optional[str], tuple]":
+    """(problem, legacy_tuple). legacy_mapping_ids is read exactly once, here."""
     if not isinstance(known, dict) or not all(isinstance(k, str) and isinstance(v, str) for k, v in known.items()):
-        return "configuration error: known_mappings must be a dict mapping 'sha256-<hex>' strings to mapping-id strings"
-    if isinstance(legacy, (str, bytes)) or legacy is None:
-        return "configuration error: legacy_mapping_ids must be an iterable of strings (not a single string, not None)"
+        return "configuration error: known_mappings must be a dict mapping 'sha256-<hex>' strings to mapping-id strings", ()
+    if legacy is None or isinstance(legacy, (str, bytes)):
+        return "configuration error: legacy_mapping_ids must be an iterable of strings (not a single string, not None)", ()
     try:
-        legacy_list = list(legacy)
-    except TypeError:
-        return "configuration error: legacy_mapping_ids must be an iterable of strings"
-    if not all(isinstance(x, str) for x in legacy_list):
-        return "configuration error: legacy_mapping_ids must contain only strings"
+        legacy_tuple = tuple(legacy)
+    except Exception:  # noqa: BLE001 -- a generator may raise anything partway
+        return "configuration error: legacy_mapping_ids could not be read", ()
+    if not all(isinstance(x, str) for x in legacy_tuple):
+        return "configuration error: legacy_mapping_ids must contain only strings", ()
     if cutover_at is not None and (not isinstance(cutover_at, str) or _parse_instant(cutover_at) is None):
-        return "configuration error: cutover_at must be None or an RFC 3339 UTC instant ending in Z with 0 to 3 fractional digits"
-    return None
+        return "configuration error: cutover_at must be None or an RFC 3339 UTC instant ending in Z with 0 to 3 fractional digits", ()
+    return None, legacy_tuple
 
 
 def mapping_policy(
@@ -167,10 +172,9 @@ def mapping_policy(
     Verify the same envelope separately using authenticated trust material.
     """
     known = TANILO_MAPPINGS if known_mappings is None else known_mappings
-    problem = _configuration_error(known, legacy_mapping_ids, cutover_at)
+    problem, legacy = _configuration_error(known, legacy_mapping_ids, cutover_at)
     if problem is not None:
         return MappingPolicy(status=STATUS_UNKNOWN, notes=[problem])
-    legacy = tuple(legacy_mapping_ids)
     payload, decode_problem = _payload_of(envelope)
     if payload is None:
         return MappingPolicy(status=STATUS_ABSENT, notes=[decode_problem or "payload could not be decoded"])

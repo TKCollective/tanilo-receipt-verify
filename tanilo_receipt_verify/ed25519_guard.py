@@ -15,8 +15,9 @@ novifinancial/ed25519-speccheck.)
 
 Rejecting a small-order R is a stricter acceptance policy than the RFC 8032
 verification equation: an equation-valid signature whose R is a small-order
-point is refused here. Such a signature contributes nothing message-dependent
-through R, and a key holder could only produce one deliberately.
+point is refused here. A key holder can construct an equation-valid signature with small-order R
+deliberately. Small-order R is also possible, with negligible probability,
+under normal RFC 8032 signing.
 
 The identity-key behavior was reported by Noûs through @robertolocatelli81-dev
 in x402-foundation/tsc#4. @babyblueviper1 reproduced it and added small-order

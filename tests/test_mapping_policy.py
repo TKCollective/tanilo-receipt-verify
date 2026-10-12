@@ -102,3 +102,31 @@ def test_bad_configuration_is_unknown_never_a_raise():
         r = mapping_policy(e, **kwargs)
         assert r.status == "unknown", (kwargs, r)
         assert any("configuration error" in n for n in r.notes), (kwargs, r.notes)
+
+
+# Astra's final check (2026-10-12)
+def test_legacy_mapping_ids_generator_is_read_once_and_a_raising_generator_is_a_configuration_error():
+    e = env({**LEGACY, "signed_at": "2026-12-01T00:00:00.000Z"})
+    def good():
+        yield "agentoracle-v0.3-2026-05-30"
+    assert mapping_policy(e, legacy_mapping_ids=good()).status == "legacy_after_cutover"
+    def raises():
+        yield "agentoracle-v0.3-2026-05-30"
+        raise ValueError("boom")
+    r = mapping_policy(e, legacy_mapping_ids=raises())
+    assert r.status == "unknown" and "configuration error: legacy_mapping_ids could not be read" in r.notes
+
+def test_non_finite_json_numbers_are_rejected():
+    import base64 as _b
+    for const in ("NaN", "Infinity", "-Infinity"):
+        raw = '{"v_gate": {"mapping_id": "agentoracle-v0.3-2026-05-30", "mapping_hash": "%s"}, "x": %s}' % (OLD, const)
+        e = {"jws": {"payload": _b.urlsafe_b64encode(raw.encode()).decode().rstrip("="), "signatures": []}}
+        r = mapping_policy(e)
+        assert r.status == "absent", (const, r)
+
+def test_non_ascii_digits_in_a_timestamp_are_unparseable():
+    # Fullwidth and Arabic-Indic digits match Python's \\d but are not ASCII; the instant must not parse.
+    r = mapping_policy(env({**LEGACY, "signed_at": "\uff12\uff10\uff12\uff16-10-13T00:00:00Z"}), cutover_at="2026-10-13T00:00:00Z")
+    assert r.status == "unknown" and any("time policy not evaluated" in n for n in r.notes), r
+    r2 = mapping_policy(env({**LEGACY, "signed_at": "2026-12-01T00:00:00Z"}), cutover_at="2026-10-1\u0663T00:00:00Z")
+    assert r2.status == "unknown" and any("configuration error" in n for n in r2.notes), r2

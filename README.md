@@ -213,13 +213,14 @@ The reason starts with one of `small_order_key`, `small_order_r`,
 or `signature_type`. An ordinary cryptographic failure carries no `reason`,
 as before.
 
-Receipts signed with Tanilo's published keys are not affected: all five
-published keys pass the new checks, and an RFC 8032 signature made with an
-ordinary key has a small-order R only with negligible probability. The risk
-concerned a verifier given a key set containing a crafted key. Note that 0.2.1
-applies a stricter acceptance policy than the RFC 8032 verification equation:
-it also rejects an equation-valid signature whose R is small-order, which a
-key holder could only produce deliberately.
+All five of Tanilo's published public keys pass the new public-key checks, so
+no Tanilo receipt is rejected because of its key. A receipt could be rejected
+only if its signature's R were small-order, which under normal RFC 8032
+signing happens with negligible probability (about 2^-252 per signature); all
+13 Tanilo-signed receipts in our repositories and published examples pass.
+Version 0.2.1 intentionally rejects equation-valid signatures with a small-
+order R, including ones a key holder constructs deliberately. The identity-key
+acceptance issue concerns a supplied key set containing a crafted key.
 
 Not checked: a mixed-order key or R (outside the prime-order subgroup but not
 itself small-order). RFC 8032 does not require rejecting those.
