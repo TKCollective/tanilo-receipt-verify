@@ -28,12 +28,13 @@ in x402-foundation/tsc#4. @babyblueviper1 reproduced it and added small-order
 checks to preaction-governance-conformance at 90b5032. This release adds
 corresponding input restrictions to Tanilo's verifier.
 
-**All five of Tanilo's published public keys pass the new public-key checks,** so no Tanilo receipt is rejected because of its key. A receipt could be rejected
-only if its signature's R were small-order, which under normal RFC 8032
-signing happens with negligible probability (about 2^-252 per signature); all
-13 Tanilo-signed receipts in our repositories and published examples pass.
-Version 0.2.1 intentionally rejects equation-valid signatures with a small-
-order R, including ones a key holder constructs deliberately. The identity-key
+**All five Tanilo published public keys tested pass the new public-key checks.** A scan of nine Tanilo repositories and review exports, covering 670 files,
+identified 13 distinct signatures under those keys; all 13 pass the new guard.
+These results cover the keys and signatures found in that scan, not every
+historical receipt or full receipt verification. Under normal RFC 8032
+signing, small-order R is negligibly unlikely but not impossible. Version
+0.2.1 intentionally rejects equation-valid signatures with small-order R,
+including ones a key holder constructs deliberately. The identity-key
 acceptance issue concerns a supplied key set containing a crafted key.
 
 - New module `tanilo_receipt_verify.ed25519_guard` (pure Python integers, no
