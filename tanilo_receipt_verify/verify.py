@@ -25,6 +25,13 @@ Design notes (must not drift):
    (64 bytes for P-256), which `cryptography`'s EllipticCurvePublicKey does
    NOT accept directly -- it verifies DER-encoded signatures, so ES256
    verification here re-encodes R||S to DER before calling `.verify()`.
+
+4. Ed25519 input guard (0.2.1) -- the library accepts a public key that is a
+   small-order point, and a signature whose R is one; under such a key a
+   signature can verify for every message (babyblueviper1, tsc#4; the
+   "Taming the many EdDSAs" vectors). `ed25519_guard.check_ed25519` runs on
+   the raw key and signature bytes BEFORE the library is called and turns
+   such input into a failed verification with a named reason, never a raise.
 """
 
 from __future__ import annotations
@@ -45,6 +52,9 @@ from cryptography.hazmat.primitives.asymmetric.ec import (
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 from cryptography.hazmat.primitives.asymmetric.utils import encode_dss_signature
 from cryptography.hazmat.primitives.hashes import SHA256
+from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
+
+from .ed25519_guard import check_ed25519
 
 # Algorithms this verifier can actually check a signature for. draft-krausz-
 # verification-state-02 Section 5.1 requires both; anything else is a known
@@ -146,42 +156,53 @@ def _jwk_to_pubkey(jwk: Dict[str, Any]):
     raise ValueError(f"unsupported JWK: kty={kty} crv={crv}")
 
 
-def _verify_jws_signature(alg: str, payload_b64: str, protected_b64: str, sig_b64: str, pubkey) -> bool:
+def _verify_jws_signature(alg: str, payload_b64: str, protected_b64: str, sig_b64: str, pubkey) -> "tuple[bool, Optional[str]]":
     """Verify a JWS signature for either EdDSA or ES256.
 
-    Returns False (never raises) for: a cryptographically invalid signature,
-    a garbled/non-base64url signature string, or a signature whose length
-    doesn't match what `alg` requires. All three are "this signature does
-    not verify" from the relying party's perspective -- a resolvable key
-    was found and an actual check was attempted, so `False` (a real,
-    evaluated failure) is the correct outcome, not an unevaluated `None`.
+    Returns (ok, reason). `ok` is False (never raises) for: a
+    cryptographically invalid signature, a garbled/non-base64url signature
+    string, or a signature whose length doesn't match what `alg` requires.
+    All three are "this signature does not verify" from the relying party's
+    perspective -- a resolvable key was found and an actual check was
+    attempted, so `False` (a real, evaluated failure) is the correct
+    outcome, not an unevaluated `None`.
+
+    `reason` is set only when the Ed25519 input guard rejected the key or
+    the signature before the library was called (small-order key,
+    small-order R, non-canonical encoding, S out of range; see
+    `ed25519_guard`). For an ordinary cryptographic failure it is None.
     """
     signing_input = (protected_b64 + "." + payload_b64).encode("ascii")
     try:
         sig = _b64url_decode(sig_b64)
     except Exception:
-        return False
+        return False, None
     try:
         if alg == "EdDSA":
+            if isinstance(pubkey, Ed25519PublicKey):
+                raw = pubkey.public_bytes(Encoding.Raw, PublicFormat.Raw)
+                reason = check_ed25519(raw, sig)
+                if reason is not None:
+                    return False, reason
             pubkey.verify(sig, signing_input)
-            return True
+            return True, None
         if alg == "ES256":
             if len(sig) != 64:
-                return False
+                return False, None
             r = int.from_bytes(sig[:32], "big")
             s = int.from_bytes(sig[32:], "big")
             der_sig = encode_dss_signature(r, s)
             pubkey.verify(der_sig, signing_input, ECDSA(SHA256()))
-            return True
-        return False
+            return True, None
+        return False, None
     except InvalidSignature:
-        return False
+        return False, None
     except Exception:
         # Any other cryptography-level failure (wrong key type for the
         # claimed alg, malformed numbers, etc.) is still "this signature
         # does not verify" -- fail closed to False, never raise out of a
         # function whose whole job is to answer "did this verify."
-        return False
+        return False, None
 
 
 # ---------- Verify result ----------
@@ -558,10 +579,17 @@ def _verify_core(
                 signers.append(entry)
                 continue
 
-            ok = _verify_jws_signature(alg, payload_b64, protected_b64, sig_b64, pubkey)
-            signers.append({"kid": kid, "issuer": issuer_matched or "unknown", "verified": ok})
+            ok, guard_reason = _verify_jws_signature(alg, payload_b64, protected_b64, sig_b64, pubkey)
+            entry = {"kid": kid, "issuer": issuer_matched or "unknown", "verified": ok}
+            if guard_reason is not None:
+                # 0.2.1: rejected by the Ed25519 input guard before the
+                # library ran. A checked, failed signature (verified=False),
+                # with the reason named so a small-order key is never
+                # mistaken for an ordinary bad signature.
+                entry["reason"] = guard_reason
+            signers.append(entry)
             if not ok:
-                errors.append(f"signature verify failed for kid={kid}")
+                errors.append(f"signature verify failed for kid={kid}" + (f": {guard_reason}" if guard_reason is not None else ""))
 
         # AC-11 precedence: a real False (checked, failed) outranks a None
         # (not checked). All-None-no-False means every signer that HAD key
