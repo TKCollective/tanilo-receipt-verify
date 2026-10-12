@@ -1,5 +1,41 @@
 # Changelog
 
+## 0.2.1 — unreleased: Ed25519 small-order guard
+
+**`verify()` now rejects small-order Ed25519 keys and signatures before the
+crypto library is called.** Reported by babyblueviper1 on x402-foundation/tsc#4
+and fixed in preaction-governance-conformance 90b5032: under the identity public
+key (or any of the eight small-order points), the signature R = identity, S = 0
+verifies *every* message, and `cryptography` (OpenSSL) accepts such a key. The
+"Taming the many EdDSAs" vectors (Chalkias, Garillot, Nikolaenko 2020;
+novifinancial/ed25519-speccheck) show the library accepting their cases 0, 1, 2
+and 11. 0.2.0 and earlier had no check of their own, so a receipt signed under
+such a key reported `valid`.
+
+- New module `tanilo_receipt_verify.ed25519_guard` (pure Python integers, no
+  new dependency). Before the library runs, the public key must decode per
+  RFC 8032 section 5.1.3 (including: x = 0 with the sign bit set is invalid),
+  be canonically encoded (y < p) and not be a small-order point (order 1, 2, 4
+  or 8, in any encoding); the signature's R must decode and not be small-order;
+  S must satisfy 0 <= S < L (section 5.1.7).
+- A rejection is a failed verification, never a raise: `status="invalid"`,
+  the signer entry carries `verified: False` and a `reason` that starts with
+  one of `small_order_key`, `small_order_r`, `noncanonical_key_encoding`,
+  `noncanonical_r_encoding`, `key_not_on_curve`, `r_not_on_curve`,
+  `signature_s_out_of_range`, `signature_length`; the same text is appended to
+  the `errors` entry. An ordinary cryptographic failure is reported exactly as
+  before (no `reason`).
+- Not checked: a *mixed-order* key or R (a point outside the prime-order
+  subgroup that is not itself small-order; Taming case 3). RFC 8032 does not
+  require rejecting those and the library accepts them; a full-order check
+  (L * A = identity) may come in a later release.
+- Tests: `tests/test_ed25519_small_order.py` (44 cases): the eight small-order
+  points and their non-canonical encodings as key and as R; the identity key
+  with R = identity, S = 0 on two different messages; the published
+  small-order key of Taming cases 0/1 with a signature the library accepts;
+  Taming cases 0, 1, 2, 6, 7, 8, 9, 10, 11; S at L and above; an ordinary
+  valid Tanilo receipt still verifies. The existing suite is unchanged.
+
 ## 0.2.0 — 2026-10-07: anchor check (a time bound on the payload)
 
 **New module `tanilo_receipt_verify.anchor`** (standard library only). The

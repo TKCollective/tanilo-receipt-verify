@@ -175,6 +175,45 @@ page; the same files are in `tests/fixtures/anchor/mainnet-2026-10-06/`.
   confirmed; the three proofs of the first testnet3 batch are kept as test
   fixtures with their retired contract for that reason.
 
+## Ed25519 small-order guard (0.2.1)
+
+Most Ed25519 libraries, `cryptography` included, accept a public key that is a
+small-order point. Under such a key a signature can verify for every message:
+with the identity point as the key, R = identity and S = 0 satisfies the
+verification equation whatever the bytes are. A relying party that only asks
+the library "does this verify?" would report such a receipt as `valid`.
+
+Since 0.2.1 `verify()` checks the raw key and signature bytes *before* the
+library is called (`tanilo_receipt_verify.ed25519_guard`, pure Python, no new
+dependency):
+
+- the public key must decode per RFC 8032 section 5.1.3 (x = 0 with the sign
+  bit set is invalid), must be canonically encoded (y < p), and must not be a
+  small-order point (order 1, 2, 4 or 8), whatever its encoding;
+- the signature's R must decode and must not be a small-order point;
+- the signature's S must satisfy 0 <= S < L.
+
+A rejection is a failed verification with a named reason, never an exception:
+
+```python
+r = verify(envelope, jwks_by_issuer=...)
+r.status                 # "invalid"
+r.signers[0]["verified"] # False
+r.signers[0]["reason"]   # "small_order_key: the public key encodes a small-order point ..."
+```
+
+The reason starts with one of `small_order_key`, `small_order_r`,
+`noncanonical_key_encoding`, `noncanonical_r_encoding`, `key_not_on_curve`,
+`r_not_on_curve`, `signature_s_out_of_range` or `signature_length`. An
+ordinary cryptographic failure carries no `reason`, as before.
+
+Not checked: a mixed-order key or R (outside the prime-order subgroup but not
+itself small-order). RFC 8032 does not require rejecting those.
+
+Reported by babyblueviper1 (x402-foundation/tsc#4; fixed in
+preaction-governance-conformance 90b5032). Vectors from "Taming the many
+EdDSAs" (Chalkias, Garillot, Nikolaenko, 2020; novifinancial/ed25519-speccheck).
+
 ## Cross-language guarantees
 
 The `tests/` suite includes byte-identical fixtures shared with the Node reference implementation:
