@@ -1,13 +1,21 @@
 """0.2.1: Ed25519 small-order keys and R, non-canonical encodings, S >= L.
 
-Reported by babyblueviper1 (x402-foundation/tsc#4, fixed in
-preaction-governance-conformance 90b5032): under the identity public key, the
-signature R = identity, S = 0 verifies every message, and the crypto library
-accepts such a key. The published "Taming the many EdDSAs" vectors
-(novifinancial/ed25519-speccheck, cases.txt) give the other shapes.
+With the identity public key, the signature R = identity, S = 0 satisfies the
+verification equation for every message. For other small-order keys,
+acceptance depends on the verifier's equation and the message. This release
+rejects all small-order public keys and R values.
+
+The identity-key behavior was reported by Noûs through @robertolocatelli81-dev
+in x402-foundation/tsc#4. @babyblueviper1 reproduced it and added small-order
+checks to preaction-governance-conformance at 90b5032. This release adds
+corresponding input restrictions to Tanilo's verifier.
 
 Every rejection here is a failed verification with a named reason, never an
-exception. An ordinary Tanilo receipt still verifies.
+exception. These tests assert only that Tanilo rejects; what the crypto
+backend itself accepts is reported by tests/diagnostic_ed25519_backend.py, not
+asserted here. The published "Taming the many EdDSAs" vectors
+(novifinancial/ed25519-speccheck, cases.txt) give the shapes. An ordinary
+Tanilo receipt still verifies.
 """
 
 import base64
@@ -17,7 +25,6 @@ import pathlib
 import sys
 
 import pytest
-from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
 
@@ -131,10 +138,13 @@ def test_taming_the_many_eddsas_vectors(case, msg, pbk, sig, expected):
     assert reason is not None and reason.startswith(expected), reason
 
 
-def test_taming_case_0_is_accepted_by_the_library_without_the_guard():
-    # The gap this module closes: `cryptography` verifies case 0 (small A and R, S = 0).
-    _, msg, pbk, sig, _ = TAMING[0]
-    Ed25519PublicKey.from_public_bytes(bytes.fromhex(pbk)).verify(bytes.fromhex(sig), bytes.fromhex(msg))
+def test_wrong_input_types_are_reasons_not_exceptions():
+    for bad in (None, "0100", 1, [1] * 32, 3.5):
+        assert g.check_public_key(bad) == "key_type: expected bytes or bytearray"
+        assert g.check_signature(bad) == "signature_type: expected bytes or bytearray"
+        assert g.check_ed25519(bad, bad) == "key_type: expected bytes or bytearray"
+    assert g.check_public_key(bytearray(IDENTITY_KEY)).startswith("small_order_key")
+    assert g.check_signature(bytearray(IDENTITY_SIG)).startswith("small_order_r")
 
 
 # ---------- through verify(): a failed verification with a named reason ----------
@@ -152,8 +162,6 @@ def _assert_rejected(result, code):
 @pytest.mark.parametrize("payload", [{"a": 1}, {"a": 2, "b": "a different message"}], ids=["message-1", "message-2"])
 def test_identity_key_with_r_identity_and_s_zero_fails_on_different_messages(payload):
     env = envelope(payload, "identity-kid", IDENTITY_SIG)
-    # Precondition, the gap: the library accepts this signature for this message.
-    Ed25519PublicKey.from_public_bytes(IDENTITY_KEY).verify(IDENTITY_SIG, signing_input(env))
     _assert_rejected(verify(env, jwks_by_issuer=jwks("identity-kid", IDENTITY_KEY)), "small_order_key")
 
 
@@ -162,10 +170,11 @@ def test_identity_key_fails_even_with_jwks_declared_complete():
     _assert_rejected(verify(env, jwks_by_issuer=jwks("identity-kid", IDENTITY_KEY), jwks_is_complete=True), "small_order_key")
 
 
-def test_published_small_order_key_fails_with_a_library_valid_signature():
-    # Taming cases 0/1's key A (order 8). Build a signature the library accepts
-    # for OUR signing input: S = 0 and R = -(h mod 8) * A, where h = SHA-512(R || A || M).
-    # The equation S*B = R + h*A then holds. The guard must reject it: small_order_key.
+def test_published_small_order_key_fails_with_an_equation_valid_signature():
+    # Taming cases 0/1's key A (order 8). Build a signature that satisfies the
+    # verification equation for OUR signing input: S = 0 and R = -(h mod 8) * A,
+    # where h = SHA-512(R || A || M), so S*B = R + h*A holds. The guard must
+    # reject it: small_order_key. (Whether the backend accepts it is not asserted.)
     raw_a = bytes.fromhex("c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac03fa")
     a_pt, _ = g.decode_point(raw_a)
     assert g.is_small_order(a_pt)
@@ -180,7 +189,6 @@ def test_published_small_order_key_fails_with_a_library_valid_signature():
             break
     assert sig is not None
     env = envelope({"receipt": "shaped like ours"}, "small-kid", sig)
-    Ed25519PublicKey.from_public_bytes(raw_a).verify(sig, signing_input(env))   # the library accepts it
     _assert_rejected(verify(env, jwks_by_issuer=jwks("small-kid", raw_a)), "small_order_key")
 
 

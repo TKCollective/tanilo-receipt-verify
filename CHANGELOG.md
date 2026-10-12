@@ -6,23 +6,34 @@
 
 `verify()` now rejects small-order Ed25519 public keys and R values,
 non-canonical point encodings and out-of-range S values *before* calling the
-crypto library, and returns a failed verification with a reason. Under a
-small-order public key (the identity point, or any of the other seven), the
-signature R = identity, S = 0 satisfies the verification equation for *every*
-message, and the library this package relies on (`cryptography`, via
-OpenSSL) accepts such a key: the "Taming the many EdDSAs" vectors (Chalkias,
-Garillot, Nikolaenko 2020; novifinancial/ed25519-speccheck) show it accepting
-their cases 0, 1, 2 and 11. 0.2.0 and earlier had no check of their own, so a
-receipt presented with such a key in the supplied JWKS reported `valid`.
+crypto library, and returns a failed verification with a reason. 0.2.0 and
+earlier had no check of their own.
 
-Credit: the gap was raised in the x402-foundation/tsc#4 discussion and fixed
-by babyblueviper1 in preaction-governance-conformance 90b5032; this release
-applies the same guard here.
+With the identity public key, the signature R = identity, S = 0 satisfies the
+verification equation for every message. For other small-order keys,
+acceptance depends on the verifier's equation and the message. This release
+rejects all small-order public keys and R values.
 
-**Receipts signed with Tanilo's published keys were never affected.** Tanilo's
-signing keys are ordinary Ed25519 keys and pass the new checks; their
-receipts verify exactly as before. The gap concerned a verifier being handed
-a crafted key set, not any receipt Tanilo issued.
+Acceptance of these edge cases varies by library, backend and version. In our
+measurements, cryptography 50.0.1 (OpenSSL 4.0.2) and Node 18 (OpenSSL 3.0.16)
+accepted Taming cases 0, 1, 2 and 11 and the identity-key signature; Node 24
+(OpenSSL 3.5.7) rejected them. This release applies its input restrictions
+independently of the backend.
+(Vectors: "Taming the many EdDSAs", Chalkias, Garillot, Nikolaenko 2020;
+novifinancial/ed25519-speccheck. `python tests/diagnostic_ed25519_backend.py`
+prints what the installed backend accepts.)
+
+The identity-key behavior was reported by Noûs through @robertolocatelli81-dev
+in x402-foundation/tsc#4. @babyblueviper1 reproduced it and added small-order
+checks to preaction-governance-conformance at 90b5032. This release adds
+corresponding input restrictions to Tanilo's verifier.
+
+**Receipts signed with Tanilo's published keys are not affected:** all five published keys pass the new checks, and an RFC 8032 signature made
+with an ordinary key has a small-order R only with negligible probability. The
+risk concerned a verifier given a key set containing a crafted key. Note that
+0.2.1 applies a stricter acceptance policy than the RFC 8032 verification
+equation: it also rejects an equation-valid signature whose R is small-order,
+which a key holder could only produce deliberately.
 
 - New module `tanilo_receipt_verify.ed25519_guard` (pure Python integers, no
   new dependency). Before the library runs, the public key must decode per
@@ -34,8 +45,8 @@ a crafted key set, not any receipt Tanilo issued.
   the signer entry carries `verified: False` and a `reason` that starts with
   one of `small_order_key`, `small_order_r`, `noncanonical_key_encoding`,
   `noncanonical_r_encoding`, `key_not_on_curve`, `r_not_on_curve`,
-  `signature_s_out_of_range`, `signature_length`; the same text is appended to
-  the `errors` entry. An ordinary cryptographic failure is reported exactly as
+  `signature_s_out_of_range`, `signature_length`, `key_type`, `signature_type`;
+  the same text is appended to the `errors` entry. An ordinary cryptographic failure is reported exactly as
   before (no `reason`).
 - Not checked: a *mixed-order* key or R (a point outside the prime-order
   subgroup that is not itself small-order; Taming case 3). RFC 8032 does not
@@ -67,11 +78,17 @@ under Security above; all existing tests pass unmodified.
   `52842536d5c8444b6add8e8cb7e8987aa3fcc0bf40cc7ac266ddc1744f0711ce`, receipts signed
   after it). The two differ only in `mapping_id`, `issuer`, `resolution` and
   `published`; rely on `mapping_id` and `mapping_hash` rather than the signing date to
-  tell receipts apart. `TANILO_MAPPING_CUTOVER_AT` is the instant the deployment
-  serving the new document began (planned `2026-10-13T00:00:00Z`).
+  tell receipts apart. `TANILO_MAPPING_CUTOVER_AT` is a configured policy threshold, planned for 2026-10-13T00:00:00Z.
 - `signed_at` and `cutover_at` are compared as parsed RFC 3339 UTC instants (Z, 0 to
-  3 fractional digits), never as strings; if either cannot be parsed, the time rule is
-  skipped and a note says so. (Audit finding, 2026-10-12: as strings,
+  3 fractional digits), never as strings. When the time rule applies (a legacy id
+  with `cutover_at` set) and `signed_at` is missing or cannot be parsed, the status
+  is `unknown` with the note "time policy not evaluated"; a non-legacy id stays
+  `known`. The payload is decoded strictly (base64url grammar, validated decoding,
+  duplicate JSON member names rejected; malformed gives `absent` with a note), and
+  the configuration arguments are validated (a bad `known_mappings`,
+  `legacy_mapping_ids` or `cutover_at` gives `unknown` with a configuration-error
+  note). Nothing raises.
+- mapping_policy() inspects unverified payload claims. A known result means only that the supplied mapping identifier and hash match the configured registry; it does not authenticate the receipt, issuer, signing time or mapping application. Verify the same envelope separately using authenticated trust material. (Audit finding, 2026-10-12: as strings,
   `…00:00:00.500Z` sorted before `…00:00:00Z`.)
 - Tests: `tests/test_mapping_policy.py` (eleven cases, including the cutover boundary
   at `00:00:00.000Z`, `00:00:00.500Z` and one millisecond before, unparseable

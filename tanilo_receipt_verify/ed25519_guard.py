@@ -1,15 +1,27 @@
 """Ed25519 input guard: small-order points, non-canonical encodings, S range.
 
-Why this exists (0.2.1, 2026-10-12). `cryptography` (via OpenSSL) and Node 18
-accept a public key that is a small-order point, as measured here; Node 24
-rejects them. Under such a key a
-signature can verify for *every* message: with the identity point as the key,
-R = identity and S = 0 satisfies the verification equation whatever the
-message is. A receipt "verified" under such a key would therefore establish
-nothing, yet the library says valid. The same holds for a signature whose R is
-a small-order point, and the published "Taming the many EdDSAs" vectors
-(Chalkias, Garillot, Nikolaenko, 2020; novifinancial/ed25519-speccheck) show
-`cryptography` ("PyCA") accepting their cases 0, 1, 2 and 11.
+Why this exists (0.2.1, 2026-10-12). With the identity public key, the signature R = identity, S = 0 satisfies the
+verification equation for every message. For other small-order keys,
+acceptance depends on the verifier's equation and the message. This release
+rejects all small-order public keys and R values.
+
+Acceptance of these edge cases varies by library, backend and version. In our
+measurements, cryptography 50.0.1 (OpenSSL 4.0.2) and Node 18 (OpenSSL 3.0.16)
+accepted Taming cases 0, 1, 2 and 11 and the identity-key signature; Node 24
+(OpenSSL 3.5.7) rejected them. This release applies its input restrictions
+independently of the backend.
+(Vectors: "Taming the many EdDSAs", Chalkias, Garillot, Nikolaenko 2020;
+novifinancial/ed25519-speccheck.)
+
+Rejecting a small-order R is a stricter acceptance policy than the RFC 8032
+verification equation: an equation-valid signature whose R is a small-order
+point is refused here. Such a signature contributes nothing message-dependent
+through R, and a key holder could only produce one deliberately.
+
+The identity-key behavior was reported by Noûs through @robertolocatelli81-dev
+in x402-foundation/tsc#4. @babyblueviper1 reproduced it and added small-order
+checks to preaction-governance-conformance at 90b5032. This release adds
+corresponding input restrictions to Tanilo's verifier.
 
 This module checks the key and the signature *before* the library is called:
 
@@ -22,12 +34,13 @@ This module checks the key and the signature *before* the library is called:
 - the signature's S must satisfy 0 <= S < L (RFC 8032 section 5.1.7).
 
 Everything here is pure Python on integers; it is a few field operations per
-check and never raises on malformed input (it returns a reason instead).
+check and never raises (a wrong input type, a wrong length or malformed bytes
+return a reason instead).
 
 Reason codes returned by `check_ed25519` (each followed by a short text):
-  key_length, key_not_on_curve, noncanonical_key_encoding, small_order_key,
-  signature_length, r_not_on_curve, noncanonical_r_encoding, small_order_r,
-  signature_s_out_of_range.
+  key_type, key_length, key_not_on_curve, noncanonical_key_encoding,
+  small_order_key, signature_type, signature_length, r_not_on_curve,
+  noncanonical_r_encoding, small_order_r, signature_s_out_of_range.
 """
 
 from __future__ import annotations
@@ -115,6 +128,9 @@ def is_small_order(pt: Point) -> bool:
 
 def check_public_key(raw: bytes) -> Optional[str]:
     """None when the key is a canonical encoding of a point that is not small-order."""
+    if not isinstance(raw, (bytes, bytearray)):
+        return "key_type: expected bytes or bytearray"
+    raw = bytes(raw)
     if len(raw) != 32:
         return f"key_length: an Ed25519 public key is 32 bytes, got {len(raw)}"
     pt, noncanonical = decode_point(raw)
@@ -133,6 +149,9 @@ def check_public_key(raw: bytes) -> Optional[str]:
 
 def check_signature(sig: bytes) -> Optional[str]:
     """None when R is a canonical encoding of a point that is not small-order and 0 <= S < L."""
+    if not isinstance(sig, (bytes, bytearray)):
+        return "signature_type: expected bytes or bytearray"
+    sig = bytes(sig)
     if len(sig) != 64:
         return f"signature_length: an Ed25519 signature is 64 bytes, got {len(sig)}"
     r_pt, noncanonical = decode_point(sig[:32])
@@ -142,7 +161,7 @@ def check_signature(sig: bytes) -> Optional[str]:
         return (
             "small_order_r: the signature's R encodes a small-order point (order 1, 2, 4 or 8)"
             + (", in a non-canonical encoding" if noncanonical else "")
-            + "; such an R contributes nothing message-dependent to the verification equation"
+            + "; this verifier's acceptance policy rejects small-order R values (stricter than the RFC 8032 verification equation)"
         )
     if noncanonical:
         return "noncanonical_r_encoding: the signature's R is not a canonical RFC 8032 encoding (y >= p, or x = 0 with the sign bit set)"

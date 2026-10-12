@@ -6,7 +6,9 @@ OLD = "sha256-0a78263976790df6e76cd9f3f441bf5a3b5c3a82e346b5aca43e49626881d7b0"
 NEW = "sha256-52842536d5c8444b6add8e8cb7e8987aa3fcc0bf40cc7ac266ddc1744f0711ce"
 
 def env(v_gate, timestamp="2026-10-01T00:00:00.000Z"):
-    payload = {"v_gate": v_gate, "timestamp": timestamp, "envelope_kind": "verification.v0.3+composed"}
+    payload = {"v_gate": v_gate, "envelope_kind": "verification.v0.3+composed"}
+    if timestamp is not None:
+        payload["timestamp"] = timestamp
     b64 = base64.urlsafe_b64encode(json.dumps(payload).encode()).decode().rstrip("=")
     return {"jws": {"payload": b64, "signatures": [{"protected": "e30", "signature": "AA"}]}}
 
@@ -61,9 +63,42 @@ def test_cutover_boundary_one_millisecond_before_is_known():
     r = mapping_policy(env({**LEGACY, "signed_at": "2026-10-12T23:59:59.999Z"}), cutover_at="2026-10-13T00:00:00.000Z")
     assert r.status == "known"
 
-def test_unparseable_signed_at_or_cutover_skips_the_time_rule_with_a_note():
-    for signed_at, cutover in (("2026-10-13T00:00:00+00:00", "2026-10-13T00:00:00Z"), ("not a time", "2026-10-13T00:00:00Z"),
-                               ("2026-12-01T00:00:00Z", "soon"), ("2026-12-01T00:00:00.1234Z", "2026-10-13T00:00:00Z")):
-        r = mapping_policy(env({**LEGACY, "signed_at": signed_at}), cutover_at=cutover)
-        assert r.status == "known", (signed_at, cutover, r)
-        assert any("time rule skipped" in n for n in r.notes), r.notes
+# Astra's audit half (2026-10-12): when the time rule applies and signed_at cannot be
+# evaluated, the result is "unknown" (time policy not evaluated), not "known".
+def test_legacy_id_with_unparseable_signed_at_is_unknown():
+    for signed_at in ("2026-10-13T00:00:00+00:00", "not a time", "2026-12-01T00:00:00.1234Z"):
+        r = mapping_policy(env({**LEGACY, "signed_at": signed_at}), cutover_at="2026-10-13T00:00:00Z")
+        assert r.status == "unknown", (signed_at, r)
+        assert any("time policy not evaluated" in n for n in r.notes), r.notes
+
+def test_legacy_id_with_missing_signed_at_is_unknown():
+    r = mapping_policy(env(LEGACY, timestamp=None), cutover_at="2026-10-13T00:00:00Z")
+    assert r.status == "unknown" and r.signed_at is None
+    assert any("time policy not evaluated" in n and "missing" in n for n in r.notes), r.notes
+
+def test_non_legacy_id_with_unparseable_signed_at_stays_known():
+    r = mapping_policy(env({"mapping_id": "tanilo-v0.3-2026-10-13", "mapping_hash": NEW, "signed_at": "not a time"}), cutover_at="2026-10-13T00:00:00Z")
+    assert r.status == "known"
+
+def test_strict_payload_decoding():
+    good = env({**LEGACY, "signed_at": "2026-10-01T12:00:00.000Z"})
+    assert mapping_policy(good).status == "known"
+    bad = {"jws": {"payload": "!!!!" + good["jws"]["payload"], "signatures": []}}
+    r = mapping_policy(bad)
+    assert r.status == "absent" and r.notes and r.status != "known"
+    # duplicate member names are rejected, not last-wins
+    import base64 as _b
+    dup = '{"v_gate": {"mapping_id": "x", "mapping_hash": "%s"}, "v_gate": {"mapping_id": "%s", "mapping_hash": "%s"}}' % (NEW, "agentoracle-v0.3-2026-05-30", OLD)
+    e = {"jws": {"payload": _b.urlsafe_b64encode(dup.encode()).decode().rstrip("="), "signatures": []}}
+    r = mapping_policy(e)
+    assert r.status == "absent" and any("duplicate" in n for n in r.notes), r
+    # standard base64 characters are outside the base64url grammar
+    assert mapping_policy({"jws": {"payload": "eyJ+Lw=="}}).status == "absent"
+
+def test_bad_configuration_is_unknown_never_a_raise():
+    e = env({**LEGACY, "signed_at": "2026-10-01T12:00:00.000Z"})
+    for kwargs in ({"legacy_mapping_ids": None}, {"legacy_mapping_ids": "agentoracle-v0.3-2026-05-30"}, {"known_mappings": []},
+                   {"known_mappings": {"a": 1}}, {"cutover_at": 1}, {"cutover_at": "soon"}):
+        r = mapping_policy(e, **kwargs)
+        assert r.status == "unknown", (kwargs, r)
+        assert any("configuration error" in n for n in r.notes), (kwargs, r.notes)

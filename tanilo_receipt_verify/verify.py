@@ -26,12 +26,14 @@ Design notes (must not drift):
    NOT accept directly -- it verifies DER-encoded signatures, so ES256
    verification here re-encodes R||S to DER before calling `.verify()`.
 
-4. Ed25519 input guard (0.2.1) -- the library accepts a public key that is a
-   small-order point, and a signature whose R is one; under such a key a
-   signature can verify for every message (babyblueviper1, tsc#4; the
-   "Taming the many EdDSAs" vectors). `ed25519_guard.check_ed25519` runs on
-   the raw key and signature bytes BEFORE the library is called and turns
-   such input into a failed verification with a named reason, never a raise.
+4. Ed25519 input guard (0.2.1) -- with the identity public key, the
+   signature R = identity, S = 0 satisfies the verification equation for
+   every message; acceptance of such edge cases varies by library, backend
+   and version (see ed25519_guard). `ed25519_guard.check_ed25519` runs on
+   the raw key and signature bytes BEFORE the library is called and turns a
+   small-order key or R, a non-canonical encoding or an out-of-range S into
+   a failed verification with a named reason, never a raise. Rejecting a
+   small-order R is stricter than the RFC 8032 verification equation.
 """
 
 from __future__ import annotations
@@ -172,8 +174,8 @@ def _verify_jws_signature(alg: str, payload_b64: str, protected_b64: str, sig_b6
     small-order R, non-canonical encoding, S out of range; see
     `ed25519_guard`). For an ordinary cryptographic failure it is None.
     """
-    signing_input = (protected_b64 + "." + payload_b64).encode("ascii")
     try:
+        signing_input = (protected_b64 + "." + payload_b64).encode("ascii")
         sig = _b64url_decode(sig_b64)
     except Exception:
         return False, None

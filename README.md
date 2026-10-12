@@ -177,11 +177,16 @@ page; the same files are in `tests/fixtures/anchor/mainnet-2026-10-06/`.
 
 ## Ed25519 small-order guard (0.2.1)
 
-`cryptography` (via OpenSSL) and Node 18 accept a public key that is a
-small-order point, as measured here; Node 24 rejects them. Under such a key a signature can verify for every message:
-with the identity point as the key, R = identity and S = 0 satisfies the
-verification equation whatever the bytes are. A relying party that only asks
-the library "does this verify?" would report such a receipt as `valid`.
+With the identity public key, the signature R = identity, S = 0 satisfies the
+verification equation for every message. For other small-order keys,
+acceptance depends on the verifier's equation and the message. This release
+rejects all small-order public keys and R values.
+
+Acceptance of these edge cases varies by library, backend and version. In our
+measurements, cryptography 50.0.1 (OpenSSL 4.0.2) and Node 18 (OpenSSL 3.0.16)
+accepted Taming cases 0, 1, 2 and 11 and the identity-key signature; Node 24
+(OpenSSL 3.5.7) rejected them. This release applies its input restrictions
+independently of the backend.
 
 Since 0.2.1 `verify()` checks the raw key and signature bytes *before* the
 library is called (`tanilo_receipt_verify.ed25519_guard`, pure Python, no new
@@ -204,20 +209,42 @@ r.signers[0]["reason"]   # "small_order_key: the public key encodes a small-orde
 
 The reason starts with one of `small_order_key`, `small_order_r`,
 `noncanonical_key_encoding`, `noncanonical_r_encoding`, `key_not_on_curve`,
-`r_not_on_curve`, `signature_s_out_of_range` or `signature_length`. An
-ordinary cryptographic failure carries no `reason`, as before.
+`r_not_on_curve`, `signature_s_out_of_range`, `signature_length`, `key_type`
+or `signature_type`. An ordinary cryptographic failure carries no `reason`,
+as before.
 
-Tanilo's published keys pass these checks; receipts signed with them verify
-exactly as before. The gap concerned a verifier handed a crafted key set.
+Receipts signed with Tanilo's published keys are not affected: all five
+published keys pass the new checks, and an RFC 8032 signature made with an
+ordinary key has a small-order R only with negligible probability. The risk
+concerned a verifier given a key set containing a crafted key. Note that 0.2.1
+applies a stricter acceptance policy than the RFC 8032 verification equation:
+it also rejects an equation-valid signature whose R is small-order, which a
+key holder could only produce deliberately.
 
 Not checked: a mixed-order key or R (outside the prime-order subgroup but not
 itself small-order). RFC 8032 does not require rejecting those.
 
-Raised in the x402-foundation/tsc#4 discussion; fixed by babyblueviper1 in
-preaction-governance-conformance 90b5032. Vectors from "Taming the many
-EdDSAs" (Chalkias, Garillot, Nikolaenko, 2020; novifinancial/ed25519-speccheck).
+The identity-key behavior was reported by Noûs through @robertolocatelli81-dev
+in x402-foundation/tsc#4. @babyblueviper1 reproduced it and added small-order
+checks to preaction-governance-conformance at 90b5032. This release adds
+corresponding input restrictions to Tanilo's verifier.
+Vectors from "Taming the many EdDSAs" (Chalkias, Garillot, Nikolaenko, 2020;
+novifinancial/ed25519-speccheck). What the installed backend itself accepts is
+reported by `python tests/diagnostic_ed25519_backend.py`.
 
 ## Which mapping document a receipt binds to (0.2.1)
+
+mapping_policy() inspects unverified payload claims. A known result means only
+that the supplied mapping identifier and hash match the configured registry;
+it does not authenticate the receipt, issuer, signing time or mapping
+application. Verify the same envelope separately using authenticated trust
+material.
+
+`TANILO_MAPPING_CUTOVER_AT` is a configured policy threshold, planned for 2026-10-13T00:00:00Z.
+When the time rule applies (a legacy id with `cutover_at` set) and `signed_at` is
+missing or cannot be parsed, the status is `unknown` with the note "time policy
+not evaluated". A malformed payload gives `absent`; a bad configuration argument
+gives `unknown` with a configuration-error note. Nothing raises.
 
 ```python
 from tanilo_receipt_verify import mapping_policy
