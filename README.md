@@ -177,8 +177,8 @@ page; the same files are in `tests/fixtures/anchor/mainnet-2026-10-06/`.
 
 ## Ed25519 small-order guard (0.2.1)
 
-Most Ed25519 libraries, `cryptography` included, accept a public key that is a
-small-order point. Under such a key a signature can verify for every message:
+`cryptography` (via OpenSSL) and Node 18 accept a public key that is a
+small-order point, as measured here; Node 24 rejects them. Under such a key a signature can verify for every message:
 with the identity point as the key, R = identity and S = 0 satisfies the
 verification equation whatever the bytes are. A relying party that only asks
 the library "does this verify?" would report such a receipt as `valid`.
@@ -213,8 +213,8 @@ exactly as before. The gap concerned a verifier handed a crafted key set.
 Not checked: a mixed-order key or R (outside the prime-order subgroup but not
 itself small-order). RFC 8032 does not require rejecting those.
 
-Reported by babyblueviper1 (x402-foundation/tsc#4; fixed in
-preaction-governance-conformance 90b5032). Vectors from "Taming the many
+Raised in the x402-foundation/tsc#4 discussion; fixed by babyblueviper1 in
+preaction-governance-conformance 90b5032. Vectors from "Taming the many
 EdDSAs" (Chalkias, Garillot, Nikolaenko, 2020; novifinancial/ed25519-speccheck).
 
 ## Which mapping document a receipt binds to (0.2.1)

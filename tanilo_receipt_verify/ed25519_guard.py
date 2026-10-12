@@ -1,8 +1,8 @@
 """Ed25519 input guard: small-order points, non-canonical encodings, S range.
 
-Why this exists (0.2.1, 2026-10-12). RFC 8032 Ed25519 verification as most
-libraries implement it (OpenSSL and therefore `cryptography`, Node, BoringSSL,
-Go, ...) accepts a public key that is a small-order point. Under such a key a
+Why this exists (0.2.1, 2026-10-12). `cryptography` (via OpenSSL) and Node 18
+accept a public key that is a small-order point, as measured here; Node 24
+rejects them. Under such a key a
 signature can verify for *every* message: with the identity point as the key,
 R = identity and S = 0 satisfies the verification equation whatever the
 message is. A receipt "verified" under such a key would therefore establish

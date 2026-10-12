@@ -40,3 +40,30 @@ def test_cutover_can_be_disabled_and_policy_is_separate_from_verify():
     e = env({"mapping_id": "agentoracle-v0.3-2026-05-30", "mapping_hash": OLD, "signed_at": "2026-12-01T00:00:00.000Z"})
     assert mapping_policy(e, cutover_at=None).status == "known"
     assert verify(e).status in ("invalid", "indeterminate")   # verify() is untouched by the helper
+
+# 0.2.1 audit (Claude's half, 2026-10-12): the cutover comparison must be on parsed
+# instants, not strings; "…00:00:00.500Z" >= "…00:00:00Z" is False as text ('.' < 'Z').
+LEGACY = {"mapping_id": "agentoracle-v0.3-2026-05-30", "mapping_hash": OLD}
+
+def test_cutover_boundary_exactly_at_the_instant_is_legacy_after_cutover():
+    r = mapping_policy(env({**LEGACY, "signed_at": "2026-10-13T00:00:00.000Z"}), cutover_at="2026-10-13T00:00:00Z")
+    assert r.status == "legacy_after_cutover"
+    r = mapping_policy(env({**LEGACY, "signed_at": "2026-10-13T00:00:00Z"}), cutover_at="2026-10-13T00:00:00.000Z")
+    assert r.status == "legacy_after_cutover"
+
+def test_cutover_boundary_half_a_second_after_is_legacy_after_cutover():
+    r = mapping_policy(env({**LEGACY, "signed_at": "2026-10-13T00:00:00.500Z"}), cutover_at="2026-10-13T00:00:00Z")
+    assert r.status == "legacy_after_cutover", r
+
+def test_cutover_boundary_one_millisecond_before_is_known():
+    r = mapping_policy(env({**LEGACY, "signed_at": "2026-10-12T23:59:59.999Z"}), cutover_at="2026-10-13T00:00:00Z")
+    assert r.status == "known"
+    r = mapping_policy(env({**LEGACY, "signed_at": "2026-10-12T23:59:59.999Z"}), cutover_at="2026-10-13T00:00:00.000Z")
+    assert r.status == "known"
+
+def test_unparseable_signed_at_or_cutover_skips_the_time_rule_with_a_note():
+    for signed_at, cutover in (("2026-10-13T00:00:00+00:00", "2026-10-13T00:00:00Z"), ("not a time", "2026-10-13T00:00:00Z"),
+                               ("2026-12-01T00:00:00Z", "soon"), ("2026-12-01T00:00:00.1234Z", "2026-10-13T00:00:00Z")):
+        r = mapping_policy(env({**LEGACY, "signed_at": signed_at}), cutover_at=cutover)
+        assert r.status == "known", (signed_at, cutover, r)
+        assert any("time rule skipped" in n for n in r.notes), r.notes

@@ -19,7 +19,7 @@ Credit: the gap was raised in the x402-foundation/tsc#4 discussion and fixed
 by babyblueviper1 in preaction-governance-conformance 90b5032; this release
 applies the same guard here.
 
-**Receipts signed with Tanilo's published key were never affected.** Tanilo's
+**Receipts signed with Tanilo's published keys were never affected.** Tanilo's
 signing keys are ordinary Ed25519 keys and pass the new checks; their
 receipts verify exactly as before. The gap concerned a verifier being handed
 a crafted key set, not any receipt Tanilo issued.
@@ -69,8 +69,14 @@ under Security above; all existing tests pass unmodified.
   `published`; rely on `mapping_id` and `mapping_hash` rather than the signing date to
   tell receipts apart. `TANILO_MAPPING_CUTOVER_AT` is the instant the deployment
   serving the new document began (planned `2026-10-13T00:00:00Z`).
-- Tests: `tests/test_mapping_policy.py` (seven cases, including that the helper is
-  separate from `verify()` and that the time rule can be disabled).
+- `signed_at` and `cutover_at` are compared as parsed RFC 3339 UTC instants (Z, 0 to
+  3 fractional digits), never as strings; if either cannot be parsed, the time rule is
+  skipped and a note says so. (Audit finding, 2026-10-12: as strings,
+  `…00:00:00.500Z` sorted before `…00:00:00Z`.)
+- Tests: `tests/test_mapping_policy.py` (eleven cases, including the cutover boundary
+  at `00:00:00.000Z`, `00:00:00.500Z` and one millisecond before, unparseable
+  instants, that the helper is separate from `verify()` and that the time rule can be
+  disabled).
 
 ## 0.2.0 — 2026-10-07: anchor check (a time bound on the payload)
 
