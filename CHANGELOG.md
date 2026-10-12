@@ -1,9 +1,57 @@
 # Changelog
 
-## 0.2.1 — 2026-10-13: `mapping_policy`, an informative mapping-document helper
+## 0.2.1 — 2026-10-13: Ed25519 small-order guard (security); `mapping_policy`
 
-**New module `tanilo_receipt_verify.mapping`** (standard library only). `verify()` and
-`verify_anchor()` are unchanged; all existing tests pass unmodified.
+### Security: small-order Ed25519 keys and signatures are now rejected
+
+`verify()` now rejects small-order Ed25519 public keys and R values,
+non-canonical point encodings and out-of-range S values *before* calling the
+crypto library, and returns a failed verification with a reason. Under a
+small-order public key (the identity point, or any of the other seven), the
+signature R = identity, S = 0 satisfies the verification equation for *every*
+message, and the library this package relies on (`cryptography`, via
+OpenSSL) accepts such a key: the "Taming the many EdDSAs" vectors (Chalkias,
+Garillot, Nikolaenko 2020; novifinancial/ed25519-speccheck) show it accepting
+their cases 0, 1, 2 and 11. 0.2.0 and earlier had no check of their own, so a
+receipt presented with such a key in the supplied JWKS reported `valid`.
+
+Credit: the gap was raised in the x402-foundation/tsc#4 discussion and fixed
+by babyblueviper1 in preaction-governance-conformance 90b5032; this release
+applies the same guard here.
+
+**Receipts signed with Tanilo's published key were never affected.** Tanilo's
+signing keys are ordinary Ed25519 keys and pass the new checks; their
+receipts verify exactly as before. The gap concerned a verifier being handed
+a crafted key set, not any receipt Tanilo issued.
+
+- New module `tanilo_receipt_verify.ed25519_guard` (pure Python integers, no
+  new dependency). Before the library runs, the public key must decode per
+  RFC 8032 section 5.1.3 (including: x = 0 with the sign bit set is invalid),
+  be canonically encoded (y < p) and not be a small-order point (order 1, 2, 4
+  or 8, in any encoding); the signature's R must decode and not be small-order;
+  S must satisfy 0 <= S < L (section 5.1.7).
+- A rejection is a failed verification, never a raise: `status="invalid"`,
+  the signer entry carries `verified: False` and a `reason` that starts with
+  one of `small_order_key`, `small_order_r`, `noncanonical_key_encoding`,
+  `noncanonical_r_encoding`, `key_not_on_curve`, `r_not_on_curve`,
+  `signature_s_out_of_range`, `signature_length`; the same text is appended to
+  the `errors` entry. An ordinary cryptographic failure is reported exactly as
+  before (no `reason`).
+- Not checked: a *mixed-order* key or R (a point outside the prime-order
+  subgroup that is not itself small-order; Taming case 3). RFC 8032 does not
+  require rejecting those and the library accepts them; a full-order check
+  (L * A = identity) may come in a later release.
+- Tests: `tests/test_ed25519_small_order.py` (44 cases): the eight small-order
+  points and their non-canonical encodings as key and as R; the identity key
+  with R = identity, S = 0 on two different messages; the published
+  small-order key of Taming cases 0/1 with a signature the library accepts;
+  Taming cases 0, 1, 2, 6, 7, 8, 9, 10, 11; S at L and above; an ordinary
+  valid Tanilo receipt still verifies. The existing suite is unchanged.
+
+### `mapping_policy`, an informative mapping-document helper
+
+**New module `tanilo_receipt_verify.mapping`** (standard library only). `verify_anchor()` is unchanged, and `verify()` changes only as described
+under Security above; all existing tests pass unmodified.
 
 - `mapping_policy(envelope, known_mappings=None, cutover_at=…, legacy_mapping_ids=…)`
   reports a receipt's `v_gate.mapping_id`, `v_gate.mapping_hash` and `signed_at`, says
