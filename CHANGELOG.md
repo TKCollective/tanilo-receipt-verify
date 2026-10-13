@@ -5,9 +5,9 @@
 ### Security: small-order Ed25519 keys and signatures are now rejected
 
 `verify()` now rejects small-order Ed25519 public keys and R values,
-non-canonical point encodings and out-of-range S values *before* calling the
-crypto library, and returns a failed verification with a reason. 0.2.0 and
-earlier had no check of their own.
+non-canonical point encodings and out-of-range S values *before* the crypto
+library verifies the signature, and returns a failed verification with a
+reason. 0.2.0 and earlier had no check of their own.
 
 With the identity public key, the signature R = identity, S = 0 satisfies the
 verification equation for every message. For other small-order keys,
