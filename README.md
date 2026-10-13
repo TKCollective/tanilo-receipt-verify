@@ -24,13 +24,15 @@ pip install tanilo-receipt-verify
 from tanilo_receipt_verify import verify
 
 result = verify(envelope, jwks_by_issuer={
-    "https://agentoracle.co/.well-known/jwks.json": ao_jwks,
+    "https://tanilo.io/.well-known/jwks.json": tanilo_jwks,
     "https://agenttrust.uk/.well-known/jwks.json": at_jwks,
 })
 
 if result.status == "valid":
     print("verified — canonical:", result.canonical_sha256)
 ```
+
+Receipts issued before 2026-10-02 name `https://agentoracle.co/.well-known/jwks.json`; that URL still serves the same key set, so they verify against either.
 
 ### Three outcomes, not two
 
@@ -51,7 +53,7 @@ if result.status == "valid":
 | `canonical_recomputes` | JCS(payload) → SHA-256 recomputes byte-identical to claimed |
 | `decision_ref_recomputes` | `sha256(JCS(preimage))` matches published `decision_ref` (per invinoveritas/babyblueviper1 spec) |
 | `decision_signer_ne_runtime` | Decision signer issuer ≠ runtime issuer (fail-closed: self-approval is void). `None` when either issuer is absent from the payload — the check could not run, which is not the same fact as "it ran and they matched" |
-| `all_signatures_verified` | Every JWS signature (`EdDSA` or `ES256`, per draft-krausz-verification-state-02 §5.1) verifies against a resolvable JWK by `kid`. `None` when a signer's key material could not be resolved from the supplied JWKS, its key material was malformed, or its algorithm isn't one of the two this verifier implements — unevaluated, not failed. `False` for an unresolved kid instead of `None` when `jwks_is_complete=True` — see below |
+| `all_signatures_verified` | Every JWS signature (`EdDSA` or `ES256`, per draft-krausz-verification-state-03 §5.1) verifies against a resolvable JWK by `kid`. `None` when a signer's key material could not be resolved from the supplied JWKS, its key material was malformed, or its algorithm isn't one of the two this verifier implements — unevaluated, not failed. `False` for an unresolved kid instead of `None` when `jwks_is_complete=True` — see below |
 
 ## Corrects a defect in `agentoracle-receipt-verify` 0.1.0 (AC-11)
 
@@ -80,7 +82,7 @@ Both readings are legitimate; the verifier has no way to guess which one the cal
 ```python
 result = verify(
     envelope,
-    jwks_by_issuer={"https://agentoracle.co/.well-known/jwks.json": ao_jwks},
+    jwks_by_issuer={"https://tanilo.io/.well-known/jwks.json": tanilo_jwks},
     jwks_is_complete=True,  # this IS the whole trust list
 )
 # an unresolved kid now reports verified=False, is named in .errors,
@@ -102,7 +104,7 @@ Structurally malformed input (wrong shape, checkable directly) returns
 `status="invalid"` with a specific error. Anything unanticipated deeper in
 the verification logic is caught and returned as `status="indeterminate"`
 with `indeterminate_reason` beginning `"instrument_failure: "` --
-draft-krausz-verification-state-02 Section 3.1's reason code for a check that
+draft-krausz-verification-state-03 Section 3.1's reason code for a check that
 could not run to completion. Either way, a caller receives a VerifyResult with status valid, invalid or
 indeterminate; these are verifier statuses, not the draft's four claim states;
 never a traceback -- per stillmarcus24's report (tsc#4,
