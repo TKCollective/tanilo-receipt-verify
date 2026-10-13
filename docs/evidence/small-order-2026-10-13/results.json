@@ -1,0 +1,145 @@
+{
+ "environment": "tanilo-receipt-verify 0.2.1; cryptography 50.0.2; OpenSSL 4.0.3 29 Sep 2026; Python 3.14.7",
+ "cases": [
+  {
+   "case": 0,
+   "what": "small A and R, S = 0",
+   "vector_from": "package tests",
+   "v021": "rejected",
+   "reason_code": "small_order_key",
+   "decided_by": "guard",
+   "backend_alone": "accepts"
+  },
+  {
+   "case": 1,
+   "what": "small A only",
+   "vector_from": "package tests",
+   "v021": "rejected",
+   "reason_code": "small_order_key",
+   "decided_by": "guard",
+   "backend_alone": "accepts"
+  },
+  {
+   "case": 2,
+   "what": "small R only",
+   "vector_from": "package tests",
+   "v021": "rejected",
+   "reason_code": "small_order_r",
+   "decided_by": "guard",
+   "backend_alone": "accepts"
+  },
+  {
+   "case": 3,
+   "what": "mixed-order A and R",
+   "vector_from": "published cases.txt",
+   "v021": "accepted",
+   "reason_code": "",
+   "decided_by": "library",
+   "backend_alone": "accepts"
+  },
+  {
+   "case": 4,
+   "what": "mixed-order A and R",
+   "vector_from": "published cases.txt",
+   "v021": "rejected",
+   "reason_code": "(none: ordinary signature failure)",
+   "decided_by": "library",
+   "backend_alone": "rejects"
+  },
+  {
+   "case": 5,
+   "what": "mixed-order A, R of order L",
+   "vector_from": "published cases.txt",
+   "v021": "rejected",
+   "reason_code": "(none: ordinary signature failure)",
+   "decided_by": "library",
+   "backend_alone": "rejects"
+  },
+  {
+   "case": 6,
+   "what": "S > L",
+   "vector_from": "package tests",
+   "v021": "rejected",
+   "reason_code": "signature_s_out_of_range",
+   "decided_by": "guard",
+   "backend_alone": "rejects"
+  },
+  {
+   "case": 7,
+   "what": "S >> L",
+   "vector_from": "package tests",
+   "v021": "rejected",
+   "reason_code": "signature_s_out_of_range",
+   "decided_by": "guard",
+   "backend_alone": "rejects"
+  },
+  {
+   "case": 8,
+   "what": "non-canonical R (small-order)",
+   "vector_from": "package tests",
+   "v021": "rejected",
+   "reason_code": "small_order_r",
+   "decided_by": "guard",
+   "backend_alone": "rejects"
+  },
+  {
+   "case": 9,
+   "what": "non-canonical R (small-order)",
+   "vector_from": "package tests",
+   "v021": "rejected",
+   "reason_code": "small_order_r",
+   "decided_by": "guard",
+   "backend_alone": "rejects"
+  },
+  {
+   "case": 10,
+   "what": "non-canonical A (small-order)",
+   "vector_from": "package tests",
+   "v021": "rejected",
+   "reason_code": "small_order_key",
+   "decided_by": "guard",
+   "backend_alone": "rejects"
+  },
+  {
+   "case": 11,
+   "what": "non-canonical A (small-order)",
+   "vector_from": "package tests",
+   "v021": "rejected",
+   "reason_code": "small_order_key",
+   "decided_by": "guard",
+   "backend_alone": "accepts"
+  }
+ ],
+ "through_verify": [
+  {
+   "input": "identity key, R = identity, S = 0, payload {\"a\": 1}",
+   "status": "invalid",
+   "reason_code": "small_order_key",
+   "backend_alone": "accepts"
+  },
+  {
+   "input": "identity key, R = identity, S = 0, payload {\"a\": 2, \"b\": \"a different message\"}",
+   "status": "invalid",
+   "reason_code": "small_order_key",
+   "backend_alone": "accepts"
+  },
+  {
+   "input": "the small-order key of cases 0/1 with an equation-valid signature for a JWS",
+   "status": "invalid",
+   "reason_code": "small_order_key",
+   "backend_alone": "accepts"
+  },
+  {
+   "input": "a key that passes the key checks, signature with R = identity",
+   "status": "invalid",
+   "reason_code": "small_order_r",
+   "backend_alone": "rejects"
+  },
+  {
+   "input": "a key that passes the key checks, signature with S = L",
+   "status": "invalid",
+   "reason_code": "signature_s_out_of_range",
+   "backend_alone": "(not run)"
+  }
+ ]
+}
