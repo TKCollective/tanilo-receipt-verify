@@ -57,9 +57,12 @@ acceptance issue concerns a supplied key set containing a crafted key.
 - Tests: `tests/test_ed25519_small_order.py` (44 cases): the eight small-order
   points and their non-canonical encodings as key and as R; the identity key
   with R = identity, S = 0 on two different messages; the published
-  small-order key of Taming cases 0/1 with a signature the library accepts;
-  Taming cases 0, 1, 2, 6, 7, 8, 9, 10, 11; S at L and above; an ordinary
-  valid Tanilo receipt still verifies. The existing suite is unchanged.
+  small-order key of Taming cases 0/1 with a signature that satisfies the
+  verification equation; Taming cases 0, 1, 2, 6, 7, 8, 9, 10, 11; S at L and
+  above; wrong input types; an ordinary valid Tanilo receipt still verifies.
+  The tests assert only that this verifier rejects; what the installed backend
+  accepts is printed by `tests/diagnostic_ed25519_backend.py`. The existing
+  suite is unchanged.
 
 ### `mapping_policy`, an informative mapping-document helper
 
@@ -80,7 +83,7 @@ under Security above; all existing tests pass unmodified.
   `52842536d5c8444b6add8e8cb7e8987aa3fcc0bf40cc7ac266ddc1744f0711ce`, receipts signed
   after it). The two differ only in `mapping_id`, `issuer`, `resolution` and
   `published`; rely on `mapping_id` and `mapping_hash` rather than the signing date to
-  tell receipts apart. `TANILO_MAPPING_CUTOVER_AT` is a configured policy threshold, planned for 2026-10-13T00:00:00Z.
+  tell receipts apart. `TANILO_MAPPING_CUTOVER_AT` is a configured policy threshold, `2026-10-13T00:07:22.431Z`: the first instant at which the deployment serving `tanilo-v0.3-2026-10-13` was observed answering on api.tanilo.io. The previous deployment's last observed answer was at `2026-10-13T00:07:21.433Z`; the planned start had been `2026-10-13T00:00:00Z`.
 - `signed_at` and `cutover_at` are compared as parsed RFC 3339 UTC instants (Z, 0 to
   3 fractional digits), never as strings. When the time rule applies (a legacy id
   with `cutover_at` set) and `signed_at` is missing or cannot be parsed, the status
@@ -92,10 +95,12 @@ under Security above; all existing tests pass unmodified.
   note). Nothing raises.
 - mapping_policy() inspects unverified payload claims. A known result means only that the supplied mapping identifier and hash match the configured registry; it does not authenticate the receipt, issuer, signing time or mapping application. Verify the same envelope separately using authenticated trust material. (Audit finding, 2026-10-12: as strings,
   `…00:00:00.500Z` sorted before `…00:00:00Z`.)
-- Tests: `tests/test_mapping_policy.py` (eleven cases, including the cutover boundary
-  at `00:00:00.000Z`, `00:00:00.500Z` and one millisecond before, unparseable
-  instants, that the helper is separate from `verify()` and that the time rule can be
-  disabled).
+- Tests: `tests/test_mapping_policy.py` (22 cases, including the recorded cutover
+  instant with the signing times of real receipts from either side of it, the
+  boundary at `00:00:00.000Z`, `00:00:00.500Z` and one millisecond before, a legacy
+  id with a missing or unparseable signing time, strict payload decoding,
+  configuration errors, that the helper is separate from `verify()` and that the
+  time rule can be disabled).
 
 ## 0.2.0 — 2026-10-07: anchor check (a time bound on the payload)
 

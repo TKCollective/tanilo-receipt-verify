@@ -21,11 +21,11 @@ def test_known_after_cutover_new_document():
     assert r.status == "known" and r.known_as == "tanilo-v0.3-2026-10-13"
 
 def test_legacy_after_cutover_is_reported_not_rejected():
-    r = mapping_policy(env({"mapping_id": "agentoracle-v0.3-2026-05-30", "mapping_hash": OLD, "signed_at": "2026-10-13T00:00:01.000Z"}))
+    r = mapping_policy(env({"mapping_id": "agentoracle-v0.3-2026-05-30", "mapping_hash": OLD, "signed_at": "2026-10-13T00:07:23.000Z"}))
     assert r.status == "legacy_after_cutover" and r.notes
 
 def test_legacy_at_cutover_minus_one_ms_is_known():
-    r = mapping_policy(env({"mapping_id": "agentoracle-v0.3-2026-05-30", "mapping_hash": OLD, "signed_at": "2026-10-12T23:59:59.999Z"}))
+    r = mapping_policy(env({"mapping_id": "agentoracle-v0.3-2026-05-30", "mapping_hash": OLD, "signed_at": "2026-10-13T00:07:22.430Z"}))
     assert r.status == "known"
 
 def test_unknown_hash_and_id_mismatch():
@@ -130,3 +130,31 @@ def test_non_ascii_digits_in_a_timestamp_are_unparseable():
     assert r.status == "unknown" and any("time policy not evaluated" in n for n in r.notes), r
     r2 = mapping_policy(env({**LEGACY, "signed_at": "2026-12-01T00:00:00Z"}), cutover_at="2026-10-1\u0663T00:00:00Z")
     assert r2.status == "unknown" and any("configuration error" in n for n in r2.notes), r2
+
+
+# The recorded cutover (2026-10-13): the deployment serving tanilo-v0.3-2026-10-13 first answered on
+# api.tanilo.io at 00:07:22.431Z; the previous deployment's last observed answer was at 00:07:21.433Z.
+# The planned 00:00:00Z was seven minutes early: the previous deployment was still signing legacy-id
+# receipts after it, and those must not be flagged.
+def test_default_cutover_is_the_recorded_instant():
+    from tanilo_receipt_verify import TANILO_MAPPING_CUTOVER_AT
+    assert TANILO_MAPPING_CUTOVER_AT == "2026-10-13T00:07:22.431Z"
+
+def test_a_real_legacy_receipt_signed_before_the_recorded_cutover_is_known():
+    # signed_at of a receipt issued by the previous deployment during the cutover
+    # (canonical_sha256 sha256-0af0da413c46d66279b5187537cdff5ab93212848887e527aba07949ff411682)
+    r = mapping_policy(env({**LEGACY, "signed_at": "2026-10-13T00:06:15.742Z"}))
+    assert r.status == "known", r
+    # the previous deployment's last observed answer
+    assert mapping_policy(env({**LEGACY, "signed_at": "2026-10-13T00:07:21.433Z"})).status == "known"
+
+def test_legacy_id_at_and_after_the_recorded_cutover_is_legacy_after_cutover():
+    assert mapping_policy(env({**LEGACY, "signed_at": "2026-10-13T00:07:22.431Z"})).status == "legacy_after_cutover"
+    assert mapping_policy(env({**LEGACY, "signed_at": "2026-10-13T00:07:23Z"})).status == "legacy_after_cutover"
+
+def test_the_first_new_receipts_after_the_cutover_are_known():
+    # signed_at of the first receipts requested from the new deployment
+    # (canonical_sha256 sha256-d34cf28933fbe56915cb011ac67c4e30806481c51a651be74df4f2f448b992c7)
+    for signed_at in ("2026-10-13T00:07:32.520Z", "2026-10-13T00:13:01.434Z"):
+        r = mapping_policy(env({"mapping_id": "tanilo-v0.3-2026-10-13", "mapping_hash": NEW, "signed_at": signed_at}))
+        assert r.status == "known" and r.known_as == "tanilo-v0.3-2026-10-13"

@@ -242,7 +242,11 @@ it does not authenticate the receipt, issuer, signing time or mapping
 application. Verify the same envelope separately using authenticated trust
 material.
 
-`TANILO_MAPPING_CUTOVER_AT` is a configured policy threshold, planned for 2026-10-13T00:00:00Z.
+`TANILO_MAPPING_CUTOVER_AT` is a configured policy threshold,
+`2026-10-13T00:07:22.431Z`: the first instant at which the deployment serving
+`tanilo-v0.3-2026-10-13` was observed answering on api.tanilo.io. The previous
+deployment's last observed answer was at `2026-10-13T00:07:21.433Z`; the
+planned start had been `2026-10-13T00:00:00Z`.
 When the time rule applies (a legacy id with `cutover_at` set) and `signed_at` is
 missing or cannot be parsed, the status is `unknown` with the note "time policy
 not evaluated". A malformed payload gives `absent`; a bad configuration argument

@@ -27,7 +27,10 @@ Tanilo's published documents (both published and byte for byte unchanged since p
   ``resolution`` and ``published`` differ. Rely on ``mapping_id`` and ``mapping_hash``
   rather than the signing date to tell receipts apart; the time rule below is a
   relying-party policy, not a validity check. ``TANILO_MAPPING_CUTOVER_AT`` is
-  a configured policy threshold, planned for 2026-10-13T00:00:00Z.
+  a configured policy threshold, ``2026-10-13T00:07:22.431Z``: the first instant at
+  which the deployment serving ``tanilo-v0.3-2026-10-13`` was observed answering on
+  api.tanilo.io. The previous deployment's last observed answer was at
+  ``2026-10-13T00:07:21.433Z``; the planned start had been ``2026-10-13T00:00:00Z``.
 """
 from __future__ import annotations
 
@@ -44,7 +47,10 @@ TANILO_MAPPINGS: Dict[str, str] = {
     "sha256-52842536d5c8444b6add8e8cb7e8987aa3fcc0bf40cc7ac266ddc1744f0711ce": "tanilo-v0.3-2026-10-13",
 }
 TANILO_LEGACY_MAPPING_IDS = ("agentoracle-v0.3-2026-05-30",)
-TANILO_MAPPING_CUTOVER_AT = "2026-10-13T00:00:00Z"   # a configured policy threshold, planned for 2026-10-13T00:00:00Z
+# A configured policy threshold: the first instant at which the deployment serving
+# tanilo-v0.3-2026-10-13 was observed answering on api.tanilo.io (recorded 2026-10-13;
+# the previous deployment last answered at 00:07:21.433Z; planned start 00:00:00Z).
+TANILO_MAPPING_CUTOVER_AT = "2026-10-13T00:07:22.431Z"
 
 _INSTANT_RE = re.compile(r"^([0-9]{4})-([0-9]{2})-([0-9]{2})T([0-9]{2}):([0-9]{2}):([0-9]{2})(?:\.([0-9]{1,3}))?Z$")   # ASCII digits only
 _B64URL_RE = re.compile(r"[A-Za-z0-9_-]*")
