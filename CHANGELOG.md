@@ -38,7 +38,7 @@ including ones a key holder constructs deliberately. The identity-key
 acceptance issue concerns a supplied key set containing a crafted key.
 
 - New module `tanilo_receipt_verify.ed25519_guard` (pure Python integers, no
-  new dependency). Before the library runs, the public key must decode per
+  new dependency). Before the library verifies the signature, the public key must decode per
   RFC 8032 section 5.1.3 (including: x = 0 with the sign bit set is invalid),
   be canonically encoded (y < p) and not be a small-order point (order 1, 2, 4
   or 8, in any encoding); the signature's R must decode and not be small-order;

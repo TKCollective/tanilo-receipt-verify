@@ -189,7 +189,7 @@ accepted Taming cases 0, 1, 2 and 11 and the identity-key signature; Node 24
 independently of the backend.
 
 Since 0.2.1 `verify()` checks the raw key and signature bytes *before* the
-library is called (`tanilo_receipt_verify.ed25519_guard`, pure Python, no new
+library verifies the signature (`tanilo_receipt_verify.ed25519_guard`, pure Python, no new
 dependency):
 
 - the public key must decode per RFC 8032 section 5.1.3 (x = 0 with the sign
