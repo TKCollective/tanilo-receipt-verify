@@ -85,7 +85,8 @@ under Security above; all existing tests pass unmodified.
   `published`; rely on `mapping_id` and `mapping_hash` rather than the signing date to
   tell receipts apart. `TANILO_MAPPING_CUTOVER_AT` is a configured policy threshold, `2026-10-13T00:07:22.431Z`: the first instant at which the deployment serving `tanilo-v0.3-2026-10-13` was observed answering on api.tanilo.io. The previous deployment's last observed answer was at `2026-10-13T00:07:21.433Z`; the planned start had been `2026-10-13T00:00:00Z`.
 - `signed_at` and `cutover_at` are compared as parsed RFC 3339 UTC instants (Z, 0 to
-  3 fractional digits), never as strings. When the time rule applies (a legacy id
+  3 fractional digits), never as strings. (Audit finding, 2026-10-12: as strings,
+  `…00:00:00.500Z` sorted before `…00:00:00Z`.) When the time rule applies (a legacy id
   with `cutover_at` set) and `signed_at` is missing or cannot be parsed, the status
   is `unknown` with the note "time policy not evaluated"; a non-legacy id stays
   `known`. The payload is decoded strictly (base64url grammar, validated decoding,
@@ -93,8 +94,7 @@ under Security above; all existing tests pass unmodified.
   the configuration arguments are validated (a bad `known_mappings`,
   `legacy_mapping_ids` or `cutover_at` gives `unknown` with a configuration-error
   note). Nothing raises.
-- mapping_policy() inspects unverified payload claims. A known result means only that the supplied mapping identifier and hash match the configured registry; it does not authenticate the receipt, issuer, signing time or mapping application. Verify the same envelope separately using authenticated trust material. (Audit finding, 2026-10-12: as strings,
-  `…00:00:00.500Z` sorted before `…00:00:00Z`.)
+- mapping_policy() inspects unverified payload claims. A known result means only that the supplied mapping identifier and hash match the configured registry; it does not authenticate the receipt, issuer, signing time or mapping application. Verify the same envelope separately using authenticated trust material.
 - Tests: `tests/test_mapping_policy.py` (22 cases, including the recorded cutover
   instant with the signing times of real receipts from either side of it, the
   boundary at `00:00:00.000Z`, `00:00:00.500Z` and one millisecond before, a legacy
