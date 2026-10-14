@@ -30,10 +30,18 @@ Design notes (must not drift):
    signature R = identity, S = 0 satisfies the verification equation for
    every message; acceptance of such edge cases varies by library, backend
    and version (see ed25519_guard). `ed25519_guard.check_ed25519` runs on
-   the raw key and signature bytes BEFORE the library is called and turns a
-   small-order key or R, a non-canonical encoding or an out-of-range S into
-   a failed verification with a named reason, never a raise. Rejecting a
-   small-order R is stricter than the RFC 8032 verification equation.
+   the raw key and signature bytes before the library verifies the
+   signature and turns a small-order key or R, a non-canonical encoding or
+   an out-of-range S into a failed verification with a named reason, never
+   a raise. Rejecting a small-order R is stricter than the RFC 8032
+   verification equation.
+
+5. Mixed-order Ed25519 points (unreleased, after 0.2.1) -- after those
+   checks, the guard refuses a key A with [L]A not the identity
+   (`mixed_order_key`) and an R with [L]R not the identity (`mixed_order_r`).
+   Same outcome as the reasons above: a failed verification, `verified:
+   False`, the result `invalid`. Stricter than the RFC 8032 verification
+   equation: some equation-valid signatures are refused.
 """
 
 from __future__ import annotations
@@ -170,9 +178,10 @@ def _verify_jws_signature(alg: str, payload_b64: str, protected_b64: str, sig_b6
     outcome, not an unevaluated `None`.
 
     `reason` is set only when the Ed25519 input guard rejected the key or
-    the signature before the library was called (small-order key,
-    small-order R, non-canonical encoding, S out of range; see
-    `ed25519_guard`). For an ordinary cryptographic failure it is None.
+    the signature before the library verified the signature (small-order
+    key, small-order R, non-canonical encoding, S out of range, mixed-order
+    key, mixed-order R; see `ed25519_guard`). For an ordinary cryptographic
+    failure it is None.
     """
     try:
         signing_input = (protected_b64 + "." + payload_b64).encode("ascii")
@@ -585,9 +594,10 @@ def _verify_core(
             entry = {"kid": kid, "issuer": issuer_matched or "unknown", "verified": ok}
             if guard_reason is not None:
                 # 0.2.1: rejected by the Ed25519 input guard before the
-                # library ran. A checked, failed signature (verified=False),
-                # with the reason named so a small-order key is never
-                # mistaken for an ordinary bad signature.
+                # library verified the signature. A checked, failed
+                # signature (verified=False), with the reason named so a
+                # small-order or mixed-order key is never mistaken for an
+                # ordinary bad signature.
                 entry["reason"] = guard_reason
             signers.append(entry)
             if not ok:

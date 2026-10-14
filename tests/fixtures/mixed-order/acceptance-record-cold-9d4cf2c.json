@@ -1,0 +1,81 @@
+{
+ "source": "babyblueviper1/preaction-governance-conformance@9d4cf2c7782fe79b68c7679b4967180ebdb9e0bd, examples/acceptance-record-cold/vectors.json (CC0-1.0)",
+ "source_sha256": "c5d0a142cf22b1cfff366fb1b6689de0b0d88ba0ad5cf846db9027204f0c138a",
+ "note": "The three mixed-order vectors (sentence 9). Each `acceptance` JWS is rewritten from flattened to general serialization; protected, payload and signature strings are copied unchanged, so the signing input is the same. `jwk` is the trust-material entry for the signature's kid.",
+ "vectors": [
+  {
+   "id": "acc-mixed-order-key-accepted-by-both-equations",
+   "what": "sentence 9: cp-1's key plus an order-8 torsion point (mixed-order); the signature satisfies both the cofactorless and the cofactored equation (k divisible by 8), so a plain RFC 8032 verifier accepts it; a mixed-order key is not a key of the confirming party",
+   "expect_in_source": {
+    "conditions": [],
+    "key_step": "key_unresolved",
+    "result": "key_unresolved"
+   },
+   "jws": {
+    "payload": "eyJhY2NlcHRhbmNlX3ZlcnNpb24iOiJhY2NlcHRhbmNlLXJlY29yZC12MCIsImFjY2VwdGVkX2F0IjoiMjAyNi0xMC0wNFQxODowNTowMC4wMDBaIiwiYWNjZXB0ZWRfcmVjb3JkX3NoYTI1NiI6IjUzMDIyYWZlMjZjZGJlMDhkNThjZWUwYTVmNmE3NDA5MDhlYmFiZTVlYmVkYzhmNGJjOGQzZGVkYzU1ZjZhNjgiLCJjb25maXJtaW5nX3BhcnR5IjoiZGlkOmV4YW1wbGU6Y291bnRlcnBhcnR5IiwiZGlzcG9zaXRpb24iOiJhY2NlcHRlZCIsIm91dGNvbWVfc2hhMjU2IjoiMWMyNzNjZGFiYzg3MmEzNjEwNTcwOTkwMThiMDlmZTQ3ODNhMWUxNmU2NWFjYTVkMDE1NTY3Yjc3OTg3MmQ5ZCIsInRlcm1zX3NoYTI1NiI6ImQyNGE1MjY0NmNhY2E2OGZmNzRmZTIyMzRlYjgxY2VhNjU4OGU3MTY2ZmMxOTVkNTQ5NjFlYzdjMGE2YTY1MzUifQ",
+    "signatures": [
+     {
+      "protected": "eyJhbGciOiJFZERTQSIsImtpZCI6ImNwLTEifQ",
+      "signature": "JaQHy3toGbdLy9CDvobWta9CEatfKOu238i5qYy1ejTDn_WKB64KvPks-q78RghuqXkZJq_6TZoaXpA2H7dsAQ"
+     }
+    ]
+   },
+   "jwk": {
+    "kty": "OKP",
+    "crv": "Ed25519",
+    "kid": "cp-1",
+    "x": "dPYFMQ-uj858bXzTxhVKP_RzWpNDdskOo4PJsEs_vak"
+   }
+  },
+  {
+   "id": "acc-mixed-order-key-equations-disagree",
+   "what": "sentence 9: the same mixed-order key; this signature satisfies the cofactored equation and fails the cofactorless one, so two conforming RFC 8032 verifiers disagree on it; the key step decides it before any equation is used",
+   "expect_in_source": {
+    "conditions": [],
+    "key_step": "key_unresolved",
+    "result": "key_unresolved"
+   },
+   "jws": {
+    "payload": "eyJhY2NlcHRhbmNlX3ZlcnNpb24iOiJhY2NlcHRhbmNlLXJlY29yZC12MCIsImFjY2VwdGVkX2F0IjoiMjAyNi0xMC0wNFQxODowNTowMC4wMDBaIiwiYWNjZXB0ZWRfcmVjb3JkX3NoYTI1NiI6IjUzMDIyYWZlMjZjZGJlMDhkNThjZWUwYTVmNmE3NDA5MDhlYmFiZTVlYmVkYzhmNGJjOGQzZGVkYzU1ZjZhNjgiLCJjb25maXJtaW5nX3BhcnR5IjoiZGlkOmV4YW1wbGU6Y291bnRlcnBhcnR5IiwiZGlzcG9zaXRpb24iOiJhY2NlcHRlZCIsIm91dGNvbWVfc2hhMjU2IjoiMWMyNzNjZGFiYzg3MmEzNjEwNTcwOTkwMThiMDlmZTQ3ODNhMWUxNmU2NWFjYTVkMDE1NTY3Yjc3OTg3MmQ5ZCIsInRlcm1zX3NoYTI1NiI6ImQyNGE1MjY0NmNhY2E2OGZmNzRmZTIyMzRlYjgxY2VhNjU4OGU3MTY2ZmMxOTVkNTQ5NjFlYzdjMGE2YTY1MzUifQ",
+    "signatures": [
+     {
+      "protected": "eyJhbGciOiJFZERTQSIsImtpZCI6ImNwLTEifQ",
+      "signature": "rpeq54Esy3VLc3A11NzJI6B8kixVhYWGSbgzvPqkfiAfPzHl6k9UMpAZhqzwJnWKa3TYCLXHzGDmjUuod8wTAQ"
+     }
+    ]
+   },
+   "jwk": {
+    "kty": "OKP",
+    "crv": "Ed25519",
+    "kid": "cp-1",
+    "x": "dPYFMQ-uj858bXzTxhVKP_RzWpNDdskOo4PJsEs_vak"
+   }
+  },
+  {
+   "id": "acc-mixed-order-r-real-key",
+   "what": "sentence 9: cp-1's real key; R = [r]B plus an order-8 torsion point, S = r + k*a: the cofactored equation accepts it, the cofactorless one rejects it; a mixed-order R is signature_invalid",
+   "expect_in_source": {
+    "conditions": [
+     "signature_invalid"
+    ],
+    "key_step": "signature_invalid",
+    "result": "malformed"
+   },
+   "jws": {
+    "payload": "eyJhY2NlcHRhbmNlX3ZlcnNpb24iOiJhY2NlcHRhbmNlLXJlY29yZC12MCIsImFjY2VwdGVkX2F0IjoiMjAyNi0xMC0wNFQxODowNTowMC4wMDBaIiwiYWNjZXB0ZWRfcmVjb3JkX3NoYTI1NiI6IjUzMDIyYWZlMjZjZGJlMDhkNThjZWUwYTVmNmE3NDA5MDhlYmFiZTVlYmVkYzhmNGJjOGQzZGVkYzU1ZjZhNjgiLCJjb25maXJtaW5nX3BhcnR5IjoiZGlkOmV4YW1wbGU6Y291bnRlcnBhcnR5IiwiZGlzcG9zaXRpb24iOiJhY2NlcHRlZCIsIm91dGNvbWVfc2hhMjU2IjoiMWMyNzNjZGFiYzg3MmEzNjEwNTcwOTkwMThiMDlmZTQ3ODNhMWUxNmU2NWFjYTVkMDE1NTY3Yjc3OTg3MmQ5ZCIsInRlcm1zX3NoYTI1NiI6ImQyNGE1MjY0NmNhY2E2OGZmNzRmZTIyMzRlYjgxY2VhNjU4OGU3MTY2ZmMxOTVkNTQ5NjFlYzdjMGE2YTY1MzUifQ",
+    "signatures": [
+     {
+      "protected": "eyJhbGciOiJFZERTQSIsImtpZCI6ImNwLTEifQ",
+      "signature": "_dBl3_Kbxr-WxHgFidOaP6Ml3nU3gRBsmNrttElXyb0rMvr2yVrj1Vgw5wxtwQM5DIiiczx5-d7zPtH7QRB6Ag"
+     }
+    ]
+   },
+   "jwk": {
+    "kty": "OKP",
+    "crv": "Ed25519",
+    "kid": "cp-1",
+    "x": "7TF4CaxY0kCA1MRX4vL3ujKNySAtpxEjHl4OE-J3n_g"
+   }
+  }
+ ]
+}

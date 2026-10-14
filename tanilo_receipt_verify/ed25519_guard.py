@@ -24,7 +24,21 @@ in x402-foundation/tsc#4. @babyblueviper1 reproduced it and added small-order
 checks to preaction-governance-conformance at 90b5032. This release adds
 corresponding input restrictions to Tanilo's verifier.
 
-This module checks the key and the signature *before* the library is called:
+Mixed-order points (unreleased, after 0.2.1). A mixed-order point is neither
+small-order nor in the prime-order subgroup: [L]P is not the identity. Whether
+a signature under a mixed-order key, or with a mixed-order R, verifies depends
+on whether the verifier uses the cofactorless or the cofactored equation of
+RFC 8032 section 5.1.7, so two conforming verifiers can disagree. This module
+refuses both, after every other check. Like the small-order R rule, this is a
+stricter acceptance policy than the RFC 8032 verification equation: some
+equation-valid signatures with a mixed-order A or R are refused. It is not a
+fix for a forgery under an ordinary key. Measured on x402-foundation/tsc#4
+(Taming case 3, a mixed-order A and R, was accepted by 0.2.1 and by the
+library); @babyblueviper1 added mixed-order checks and three vectors to
+preaction-governance-conformance at 9d4cf2c.
+
+This module checks the key and the signature before the library verifies the
+signature:
 
 - the public key must decode to a point on the curve (RFC 8032 section
   5.1.3, including its rule that x = 0 with the sign bit set is invalid),
@@ -32,16 +46,23 @@ This module checks the key and the signature *before* the library is called:
   (order 1, 2, 4 or 8: the eight points of the torsion subgroup, whatever
   their encoding);
 - the signature's R must decode and must not be a small-order point;
-- the signature's S must satisfy 0 <= S < L (RFC 8032 section 5.1.7).
+- the signature's S must satisfy 0 <= S < L (RFC 8032 section 5.1.7);
+- then, after all of the above: [L]A must be the identity, and [L]R must be
+  the identity (L = 2^252 + 27742317777372353535851937790883648493, the
+  prime order of the base point, RFC 8032 section 5.1). The point is
+  multiplied by L itself; the scalar is never reduced mod L, which would
+  multiply by zero and pass every point.
 
-Everything here is pure Python on integers; it is a few field operations per
-check and never raises (a wrong input type, a wrong length or malformed bytes
-return a reason instead).
+Everything here is pure Python on integers and never raises (a wrong input
+type, a wrong length or malformed bytes return a reason instead). The [L]P
+checks use extended coordinates, with no field inversion per step.
 
-Reason codes returned by `check_ed25519` (each followed by a short text):
-  key_type, key_length, key_not_on_curve, noncanonical_key_encoding,
-  small_order_key, signature_type, signature_length, r_not_on_curve,
-  noncanonical_r_encoding, small_order_r, signature_s_out_of_range.
+Reason codes returned by `check_ed25519` (each followed by a short text), in
+the order they are checked:
+  key_type, key_length, key_not_on_curve, small_order_key,
+  noncanonical_key_encoding, signature_type, signature_length,
+  r_not_on_curve, small_order_r, noncanonical_r_encoding,
+  signature_s_out_of_range, mixed_order_key, mixed_order_r.
 """
 
 from __future__ import annotations
@@ -127,6 +148,45 @@ def is_small_order(pt: Point) -> bool:
     return point_mul(8, pt) == IDENTITY
 
 
+# The scalar for the subgroup check: the prime order of the base point, RFC 8032 section 5.1. Used as it is,
+# never reduced mod L ([L mod L]P = [0]P is the identity for every point, so a reduced scalar would pass everything).
+L_ORDER_SCALAR = 2**252 + 27742317777372353535851937790883648493
+assert L_ORDER_SCALAR == L
+_D2 = (2 * _D) % P
+
+
+def _ext_add(p1, p2):
+    """Extended twisted Edwards addition, a = -1 (Hisil, Wong, Carter, Dawson 2008, "add-2008-hwcd-3").
+    Complete for Ed25519 (d is not a square), so it also doubles and handles the identity."""
+    x1, y1, z1, t1 = p1
+    x2, y2, z2, t2 = p2
+    a = ((y1 - x1) * (y2 - x2)) % P
+    b = ((y1 + x1) * (y2 + x2)) % P
+    c = (t1 * _D2 * t2) % P
+    d = (z1 * 2 * z2) % P
+    e, f, g, h = b - a, d - c, d + c, b + a
+    return ((e * f) % P, (g * h) % P, (f * g) % P, (e * h) % P)
+
+
+def mul_is_identity(k: int, pt: Point) -> bool:
+    """True when [k]pt is the identity. k is used exactly as given (no reduction)."""
+    x, y = pt
+    result = (0, 1, 1, 0)
+    addend = (x, y, 1, (x * y) % P)
+    while k > 0:
+        if k & 1:
+            result = _ext_add(result, addend)
+        addend = _ext_add(addend, addend)
+        k >>= 1
+    rx, ry, rz, _ = result
+    return rx % P == 0 and (ry - rz) % P == 0
+
+
+def is_torsion_free(pt: Point) -> bool:
+    """True when [L]pt is the identity: pt is in the prime-order subgroup (or is the identity)."""
+    return mul_is_identity(L_ORDER_SCALAR, pt)
+
+
 def check_public_key(raw: bytes) -> Optional[str]:
     """None when the key is a canonical encoding of a point that is not small-order."""
     if not isinstance(raw, (bytes, bytearray)):
@@ -172,10 +232,39 @@ def check_signature(sig: bytes) -> Optional[str]:
     return None
 
 
+def check_mixed_order(public_key: bytes, signature: bytes) -> Optional[str]:
+    """The subgroup checks, for a pair that has passed check_public_key and check_signature: None when [L]A and
+    [L]R are both the identity. Never raises."""
+    try:
+        a_pt, _ = decode_point(bytes(public_key))
+        r_pt, _ = decode_point(bytes(signature)[:32])
+        if a_pt is None or r_pt is None:
+            return None   # not reached after the earlier checks; those already returned a reason
+        if not is_torsion_free(a_pt):
+            return (
+                "mixed_order_key: the public key is a mixed-order point ([L]A is not the identity: it has a "
+                "small-order component); whether a signature under it verifies depends on the verifier's equation "
+                "(cofactored or cofactorless, RFC 8032 section 5.1.7), so this verifier's acceptance policy rejects "
+                "it (stricter than the RFC 8032 verification equation)"
+            )
+        if not is_torsion_free(r_pt):
+            return (
+                "mixed_order_r: the signature's R is a mixed-order point ([L]R is not the identity: it has a "
+                "small-order component); whether the signature verifies depends on the verifier's equation "
+                "(cofactored or cofactorless, RFC 8032 section 5.1.7), so this verifier's acceptance policy rejects "
+                "it (stricter than the RFC 8032 verification equation)"
+            )
+        return None
+    except Exception:  # noqa: BLE001 -- the guard never raises
+        return "mixed_order_check_failed: the subgroup check could not run on these bytes"
+
+
 def check_ed25519(public_key: bytes, signature: bytes) -> Optional[str]:
-    """Reason the pair must be rejected before any library call, or None.
+    """Reason the pair must be rejected before the library verifies the signature, or None.
 
     The key is checked first, so a small-order key with a small-order R
-    reports `small_order_key`.
+    reports `small_order_key`. The mixed-order checks run last, after every
+    earlier check has passed, so every earlier reason is reported exactly as
+    before; a mixed-order key with a mixed-order R reports `mixed_order_key`.
     """
-    return check_public_key(public_key) or check_signature(signature)
+    return check_public_key(public_key) or check_signature(signature) or check_mixed_order(public_key, signature)
