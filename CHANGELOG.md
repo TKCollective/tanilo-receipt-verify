@@ -1,5 +1,61 @@
 # Changelog
 
+## Unreleased: mixed-order Ed25519 keys and R are refused
+
+### A stricter acceptance policy than the RFC 8032 verification equation
+
+After the existing checks, `verify()` now refuses an Ed25519 public key A
+whose [L]A is not the identity, and a signature whose R has [L]R not the
+identity (L = 2^252 + 27742317777372353535851937790883648493, RFC 8032
+section 5.1). Such a point is *mixed-order*: neither small-order nor in the
+prime-order subgroup.
+
+This is a stricter acceptance policy than the RFC 8032 verification
+equation. Some equation-valid signatures with a mixed-order A or R are now
+refused. Whether they verify depends on whether a verifier uses the
+cofactorless or the cofactored equation (RFC 8032 section 5.1.7), so two
+conforming verifiers can disagree on them; this release refuses them
+independently of that choice. It is not a fix for a forgery under an
+ordinary key.
+
+0.2.1 and the library accepted Taming case 3 (a mixed-order A and R), as
+recorded in `docs/evidence/small-order-2026-10-13/`. @babyblueviper1 added
+mixed-order checks and three vectors to preaction-governance-conformance at
+9d4cf2c, after that measurement was posted on x402-foundation/tsc#4.
+
+- Order: every 0.2.1 check runs first and keeps its reason code, so an input
+  0.2.1 rejected is rejected with the same reason. Then the key, then R.
+- A refusal is a failed verification, never a raise: `status="invalid"`, the
+  signer entry carries `verified: False` and a `reason` starting with
+  `mixed_order_key` or `mixed_order_r`, and the same text is appended to the
+  `errors` entry. These are diagnostic reasons inside the existing statuses.
+  (`mixed_order_check_failed` is returned only if the check itself could not
+  run; no test input reaches it.)
+- The point is multiplied by L itself, never by L reduced mod L (which would
+  be zero and pass every point). The multiplication uses extended
+  coordinates. `check_public_key` and `check_signature` are unchanged; the
+  new `check_mixed_order` runs inside `check_ed25519`.
+- Tests: `tests/test_ed25519_mixed_order.py` (73 cases): Taming cases 3, 4
+  and 5; the three mixed-order vectors of preaction-governance-conformance at
+  9d4cf2c, at the guard and through `verify()` (rewritten from flattened to
+  general serialization, strings unchanged); two receipts in the form the API
+  issues, over the live AER-1 payload, under fixture keys (a mixed-order key
+  whose signature satisfies both equations, and a mixed-order R); the 0.2.1
+  reasons keep their order; the scalar is L; the extended multiplication
+  agrees with the affine one; the published Tanilo keys are in the
+  prime-order subgroup; random and malformed bytes never raise; the live
+  AER-1 receipt and the other published fixtures still verify.
+- Cost: on an Apple M5 Pro with Python 3.14.7, 1,000 `verify()` calls on
+  the AER-1 receipt took 2.61 s with 0.2.1 and 5.49 s with this change
+  (best of five rounds, two runs each).
+- Wording corrected: the docstrings and comments in `verify.py` and
+  `ed25519_guard.py` now say the guard runs before the library verifies the
+  signature (0.2.1 said "before the library is called"; the library builds
+  the key object first).
+
+The 0.2.1 entry below, which says mixed-order points are not checked, is
+left as it was released.
+
 ## 0.2.1 — 2026-10-13: Ed25519 small-order guard (security); `mapping_policy`
 
 ### Security: small-order Ed25519 keys and signatures are now rejected
