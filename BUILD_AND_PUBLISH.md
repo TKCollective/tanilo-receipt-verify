@@ -1,65 +1,67 @@
-# Build and publish — run from your machine, not from here
+# Build and publish
 
-This package is built and tested and **final**. **Nothing has been pushed or published.** The hold pending Oracle's counsel reply is lifted — `-02` is publicly posted on the IETF datatracker with the Tanilo contact (`joe@tanilo.io`), so the reason for withholding the `tanilo-receipt-verify` ↔ `agentoracle-receipt-verify` naming link from public surfaces no longer applies.
+Releases are built on a maintainer's machine and uploaded to PyPI by hand with `twine`, using a PyPI API
+token. There is no CI publish step. Replace `X.Y.Z` below with the version being released.
 
-## What's already done
+## Before building
 
-- Renamed from `agentoracle-receipt-verify` → `tanilo-receipt-verify`, module path `tanilo_receipt_verify`.
-- AC-11 fix carried over (unresolved key lookup vs. cryptographic failure — see CHANGELOG.md).
-- **37/37 tests pass** (`tests/test_byte_identical.py`, `tests/test_indeterminate_default.py`, `tests/test_ac11_partial_jwks.py`, `tests/test_defensive_and_es256.py` — the last covers ES256 support and the defensive fixes from the 2026-09-23 review round).
-- Author metadata confirmed: `Joe Krausz <joe@tanilo.io>` in `pyproject.toml`.
-- Repository URL confirmed: `https://github.com/TKCollective/tanilo-receipt-verify` (matches the package name, no `-py` suffix).
-- `dist/` already contains a built wheel and sdist for inspection:
-  - `tanilo_receipt_verify-0.1.0-py3-none-any.whl`
-  - `tanilo_receipt_verify-0.1.0.tar.gz`
+- `version` in `pyproject.toml` and `__version__` in `tanilo_receipt_verify/__init__.py` are both `X.Y.Z`.
+- `CHANGELOG.md` has a `## X.Y.Z` entry.
+- The full suite passes: `python -m pytest -q`.
+- The release branch is committed and the working tree is clean: `git status --short` prints nothing.
+- If `tanilo_receipt_verify/ed25519_guard.py` changed, TKCollective/tanilo-receipt-spec has a branch that carries
+  the byte-identical copy in `examples/ed25519_guard.py`, its sha256 in `examples/README.md`, and the JavaScript
+  twin `examples/ed25519_guard.mjs` giving the same answers.
 
-These were built here for verification only. Rebuild from your machine before publishing so the artifact you upload is one you built yourself.
+## Build
 
-## Before you publish — decide these
-
-1. **PyPI project name availability.** Confirm `tanilo-receipt-verify` is unclaimed on PyPI (it wasn't checked from here since that itself would touch a public surface).
-2. **GitHub repo.** `pyproject.toml` points `Repository` at `https://github.com/TKCollective/tanilo-receipt-verify` (matches the package name, no `-py` suffix) — a repo that does not exist yet. Create it (private until you're ready, or public — your call) before or after PyPI publish, but the URL in the metadata should resolve by the time anyone checks it.
-3. **Author/homepage metadata.** Set to `Joe Krausz <joe@tanilo.io>` / homepage `https://tanilo.io` in `pyproject.toml`. Change before building your own copy if you want different contact details.
-
-## Build (from your machine)
+From the repository root, with a virtual environment that has `build` and `twine`:
 
 ```bash
-cd tanilo-receipt-verify
 python3 -m venv .venv
-source .venv/bin/activate
-pip install --upgrade pip build twine
-rm -rf dist build tanilo_receipt_verify.egg-info
-python -m build
+.venv/bin/pip install --upgrade pip build twine
+rm -rf build tanilo_receipt_verify.egg-info dist/tanilo_receipt_verify-X.Y.Z*
+.venv/bin/python -m build
 ```
 
-This produces `dist/tanilo_receipt_verify-0.1.0-py3-none-any.whl` and the matching `.tar.gz`.
+This writes `dist/tanilo_receipt_verify-X.Y.Z-py3-none-any.whl` and `dist/tanilo_receipt_verify-X.Y.Z.tar.gz`.
+`dist/` is ignored by git and may also hold earlier versions.
 
-## Verify before upload
+## Check before uploading
 
 ```bash
-# Confirm license is bundled correctly and metadata is right
-python -m zipfile -l dist/tanilo_receipt_verify-0.1.0-py3-none-any.whl
-twine check dist/*
-
-# Optional: install the built wheel into a clean venv and re-run tests
-python3 -m venv /tmp/verify_venv
-source /tmp/verify_venv/bin/activate
-pip install dist/tanilo_receipt_verify-0.1.0-py3-none-any.whl pytest
-python -m pytest tests/ -v
-deactivate
+.venv/bin/twine check dist/tanilo_receipt_verify-X.Y.Z-py3-none-any.whl dist/tanilo_receipt_verify-X.Y.Z.tar.gz
+shasum -a 256 dist/tanilo_receipt_verify-X.Y.Z*
 ```
 
-## Upload to PyPI
+- Run the suite from the extracted sdist, so every test file and fixture the tests need is known to ship.
+- Install the wheel in a fresh virtual environment, outside the repository, and verify a published receipt
+  with it (for example tanilo-receipt-spec `examples/interop/aer1/receipt.jws.json` against its key set).
+- Keep the two sha256 values: they are compared with PyPI after the upload.
+
+## Upload
+
+Name the two files explicitly, so no other version in `dist/` is uploaded:
 
 ```bash
-source .venv/bin/activate
-twine upload dist/*
+.venv/bin/twine upload dist/tanilo_receipt_verify-X.Y.Z-py3-none-any.whl dist/tanilo_receipt_verify-X.Y.Z.tar.gz
 ```
 
-You'll be prompted for PyPI credentials (or use a saved `~/.pypirc` / `TWINE_USERNAME` + `TWINE_PASSWORD`/API token). This step is the actual publish — nothing before it touches PyPI.
+At the prompt, the username is `__token__` and the password is the PyPI API token. The upload is the publish
+step; nothing before it touches PyPI.
 
-## Recommended order once you're ready to publish
+## After the upload
 
-1. Create the `TKCollective/tanilo-receipt-verify` GitHub repo (no `-py` suffix — matches the package name) and push. (No existing `agentoracle-receipt-verify-py` repo to rename — checked; it doesn't exist. This is a new repo, not a rename.)
-2. `twine upload dist/*` to publish to PyPI.
-3. Post the two "fixed" notices (drafted separately) on `tsc#4` and `SCITT#462` linking the new package.
+1. Compare PyPI's sha256 values with the local ones:
+   `https://pypi.org/pypi/tanilo-receipt-verify/X.Y.Z/json`, field `urls[].digests.sha256`.
+2. Install `tanilo-receipt-verify==X.Y.Z` from PyPI in a fresh virtual environment and repeat the receipt check.
+3. Fast-forward `main` to the release branch and push it.
+4. Tag the release commit and push the tag:
+
+   ```bash
+   git tag -a vX.Y.Z -m "tanilo-receipt-verify X.Y.Z"
+   git push origin vX.Y.Z
+   ```
+
+5. If the guard changed, merge the tanilo-receipt-spec branch into its `main` and push it (its README links the
+   PyPI page for X.Y.Z, so this comes after the upload).
