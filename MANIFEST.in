@@ -5,3 +5,4 @@ recursive-include tests *.py
 recursive-include tests/fixtures *.json
 recursive-include tests/fixtures LICENSE
 recursive-include tests/fixtures *.md
+recursive-include tests/fixtures *.txt
