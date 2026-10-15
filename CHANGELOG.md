@@ -3,8 +3,8 @@
 ## 0.2.3 — 2026-10-15: documentation and test-fixture corrections (no behavior change)
 
 Documentation and test-fixture corrections only. `verify()` and the Ed25519
-input guard behave exactly as in 0.2.2; the only change inside the package is
-its version number.
+input guard behave exactly as in 0.2.2; the only changes inside the package
+are its version number and one docstring sentence in `ed25519_guard.py`.
 
 - Test fixture `tests/fixtures/mixed-order/tanilo-shaped.json`, receipt
   `mixed-order-key`: RFC 8032 section 5.1.7 takes k as the full SHA-512
@@ -20,6 +20,22 @@ its version number.
   recompute the four equation results for both generated receipts and check
   them against the recorded ones. The fixture's NOTICE carries a dated
   correction.
+- Test `test_published_small_order_key_fails_with_an_equation_valid_signature`
+  (in `tests/test_ed25519_small_order.py`, since 0.2.1): its signature under
+  the published small-order key was also built with k mod L only, and
+  satisfied the cofactorless equation with k mod L but not with the full k.
+  It is now built with the full k (the same search as the regenerated
+  fixture), satisfies both equations with the full k and with k mod L, and
+  the test checks all four results. The guard still refuses it with
+  `small_order_key`.
+- `ed25519_guard.py` docstring: the Taming case 3 sentence now says that, in
+  our recorded environment, the 0.2.1 guard followed by the library accepted
+  Taming case 3 on the vector's raw message, not through `verify()`. The copy
+  in tanilo-receipt-spec moves with it.
+- The upstream vector `acc-mixed-order-key-accepted-by-both-equations`
+  (preaction-governance-conformance at 9d4cf2c) is kept unchanged in the
+  fixtures. Its signature satisfies the cofactored equation with either
+  reading of k, and the cofactorless equation only with k mod L.
 - CHANGELOG, 0.2.2 entry: the order of checks, the Taming case 3 sentence
   (our recorded environment, the vector's raw message, not `verify()`), the
   fixture description, and the closing note on the 0.2.1 entry are corrected.

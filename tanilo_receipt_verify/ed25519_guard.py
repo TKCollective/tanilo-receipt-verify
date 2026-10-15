@@ -32,9 +32,10 @@ RFC 8032 section 5.1.7, so two conforming verifiers can disagree. This module
 refuses both, after every other check. Like the small-order R rule, this is a
 stricter acceptance policy than the RFC 8032 verification equation: some
 equation-valid signatures with a mixed-order A or R are refused. It is not a
-fix for a forgery under an ordinary key. Measured on x402-foundation/tsc#4
-(Taming case 3, a mixed-order A and R, was accepted by 0.2.1 and by the
-library); @babyblueviper1 added mixed-order checks and three vectors to
+fix for a forgery under an ordinary key. Measured on x402-foundation/tsc#4:
+in our recorded environment, the 0.2.1 guard followed by the library accepted
+Taming case 3 (a mixed-order A and R) on the vector's raw message, not through
+verify(). @babyblueviper1 added mixed-order checks and three vectors to
 preaction-governance-conformance at 9d4cf2c.
 
 This module checks the key and the signature before the library verifies the

@@ -170,25 +170,56 @@ def test_identity_key_fails_even_with_jwks_declared_complete():
     _assert_rejected(verify(env, jwks_by_issuer=jwks("identity-kid", IDENTITY_KEY), jwks_is_complete=True), "small_order_key")
 
 
+B_POINT = g.decode_point(bytes.fromhex("5866666666666666666666666666666666666666666666666666666666666666"))[0]
+
+
+def _four_equations(pub, sig, msg):
+    """RFC 8032 section 5.1.7: cofactorless [S]B = R + [k]A and cofactored [8][S]B = [8]R + [8][k]A, with k the full
+    SHA-512 digest of R || A || M (as RFC 8032 states it) and with k mod L (as common implementations compute it)."""
+    A, R, S = g.decode_point(pub)[0], g.decode_point(sig[:32])[0], int.from_bytes(sig[32:], "little")
+    full = int.from_bytes(hashlib.sha512(sig[:32] + pub + msg).digest(), "little")
+    out = {}
+    for label, k in (("full_k", full), ("k_mod_L", full % g.L)):
+        lhs, rhs = g.point_mul(S, B_POINT), g.point_add(R, g.point_mul(k, A))
+        out["cofactorless_" + label] = lhs == rhs
+        out["cofactored_" + label] = g.point_mul(8, lhs) == g.point_mul(8, rhs)
+    return out
+
+
+# The signature found by the search below, recorded so a change in the search or the hashing shows up here.
+# (0.2.3: the search uses the full k; 0.2.1 and 0.2.2 used k mod L only, and that signature satisfied the
+# cofactorless equation with k mod L but not with the full k.)
+SMALL_KEY_PAYLOAD_N = 10
+SMALL_KEY_R_MULTIPLE = 3
+ALL_FOUR_TRUE = {"cofactorless_full_k": True, "cofactored_full_k": True, "cofactorless_k_mod_L": True, "cofactored_k_mod_L": True}
+
+
 def test_published_small_order_key_fails_with_an_equation_valid_signature():
-    # Taming cases 0/1's key A (order 8). Build a signature that satisfies the
-    # verification equation for OUR signing input: S = 0 and R = -(h mod 8) * A,
-    # where h = SHA-512(R || A || M), so S*B = R + h*A holds. The guard must
-    # reject it: small_order_key. (Whether the backend accepts it is not asserted.)
+    # Taming cases 0/1's key A (order 8). Build a signature that satisfies the verification equation for OUR signing
+    # input: S = 0 and R = [j]A with j + k = 0 (mod 8), so [S]B = R + [k]A. k is taken both ways RFC 8032 section
+    # 5.1.7 can be read in practice: the full SHA-512 digest, and that digest mod L. Successive payloads are tried
+    # until one j works for both. The guard must reject it: small_order_key. (Whether the backend accepts it is not
+    # asserted.)
     raw_a = bytes.fromhex("c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac03fa")
     a_pt, _ = g.decode_point(raw_a)
     assert g.is_small_order(a_pt)
-    env = envelope({"receipt": "shaped like ours"}, "small-kid", bytes(64))
-    m = signing_input(env)
-    sig = None
-    for k in range(8):                                   # find the k with k*A = -h*A
-        r = g.encode_point(g.point_mul(k, a_pt))
-        h = int.from_bytes(hashlib.sha512(r + raw_a + m).digest(), "little") % g.L
-        if (k + h) % 8 == 0:
-            sig = r + bytes(32)
+    found = None
+    for n in range(512):
+        payload = {"receipt": "shaped like ours", "n": n}
+        m = signing_input(envelope(payload, "small-kid", bytes(64)))
+        for j in range(8):
+            r = g.encode_point(g.point_mul(j, a_pt))
+            k = int.from_bytes(hashlib.sha512(r + raw_a + m).digest(), "little")
+            if (j + k) % 8 == 0 and (j + k % g.L) % 8 == 0:
+                found = (n, j, payload, r + bytes(32))
+                break
+        if found:
             break
-    assert sig is not None
-    env = envelope({"receipt": "shaped like ours"}, "small-kid", sig)
+    assert found is not None
+    n, j, payload, sig = found
+    assert (n, j) == (SMALL_KEY_PAYLOAD_N, SMALL_KEY_R_MULTIPLE)
+    env = envelope(payload, "small-kid", sig)
+    assert _four_equations(raw_a, sig, signing_input(env)) == ALL_FOUR_TRUE
     _assert_rejected(verify(env, jwks_by_issuer=jwks("small-kid", raw_a)), "small_order_key")
 
 
