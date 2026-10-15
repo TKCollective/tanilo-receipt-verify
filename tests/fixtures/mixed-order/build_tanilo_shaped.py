@@ -4,13 +4,19 @@ serialization, one signature, attached base64url payload), over the payload of t
 receipt (tanilo-receipt-spec examples/interop/aer1/receipt.jws.json, signed 2026-10-08), each under a
 FIXTURE key whose scalar is published here on purpose. Never a production key.
 
-1. mixed-order-key: A = [a]B + T, where T is an order-8 point. The nonce is chosen so that k = SHA-512(R || A || M)
-   mod L is divisible by 8; then [k]T is the identity and S = r + k*a satisfies the cofactorless equation
-   [S]B = R + [k]A, so the cofactored one holds too. A plain RFC 8032 verifier accepts it.
-2. mixed-order-r: the prime-order key [a]B, with R = [r]B + T and S = r + k*a. The cofactored equation holds and the
-   cofactorless one does not.
+RFC 8032 section 5.1.7 defines k as the full 64-octet SHA-512 digest of R || A || M, read as a little-endian
+integer, with no reduction mod L. Common implementations reduce it mod L first. For a key in the prime-order subgroup
+the two give the same result; for a mixed-order key they can differ, because L mod 8 = 5 and [k]T depends on k mod 8.
+So every equation below is checked with the full k (as RFC 8032 states it) and with k mod L.
 
-Both equations are checked here directly. Uses only the point arithmetic of tanilo_receipt_verify 0.2.1
+1. mixed-order-key: A = [a]B + T, where T is an order-8 point. The nonce is chosen so that both the full k and
+   k mod L are divisible by 8; then [k]T is the identity under either reading, and S = r + (k mod L)*a satisfies the
+   cofactorless equation [S]B = R + [k]A, and so the cofactored one, with the full k and with k mod L.
+2. mixed-order-r: the prime-order key [a]B, with R = [r]B + T and S = r + (k mod L)*a. The cofactored equation holds
+   and the cofactorless one does not, with the full k and with k mod L.
+
+All four results are checked here directly (2026-10-15: the nonce search and the checks now use the full k; the
+first version used k mod L only, and its mixed-order-key signature failed the cofactorless equation with the full k). Uses only the point arithmetic of tanilo_receipt_verify 0.2.1
 (decode_point, encode_point, point_add, point_mul), so it builds the same file before and after the mixed-order
 checks. Deterministic: run it again and the output is byte-identical.
 
@@ -41,7 +47,13 @@ def b64u(b: bytes) -> str:
 
 
 def h(*parts: bytes) -> int:
+    """A scalar derived from a seed (the fixture key and nonces), reduced mod L."""
     return int.from_bytes(hashlib.sha512(b"".join(parts)).digest(), "little") % L
+
+
+def k_full(R: bytes, pub: bytes, msg: bytes) -> int:
+    """RFC 8032 section 5.1.7 k: the full SHA-512 digest of R || A || M as a little-endian integer, NOT reduced mod L."""
+    return int.from_bytes(hashlib.sha512(R + pub + msg).digest(), "little")
 
 
 def protected(kid: str) -> str:
@@ -49,12 +61,16 @@ def protected(kid: str) -> str:
     return b64u(json.dumps(hdr, separators=(",", ":")).encode())
 
 
-def equations(pub: bytes, sig: bytes, msg: bytes):
-    """(cofactorless, cofactored) RFC 8032 5.1.7 results, computed directly."""
+def equations(pub: bytes, sig: bytes, msg: bytes) -> dict:
+    """RFC 8032 5.1.7 results, computed directly: cofactorless [S]B = R + [k]A and cofactored [8][S]B = [8]R + [8][k]A,
+    each with the full k and with k mod L."""
     A, R, S = decode_point(pub)[0], decode_point(sig[:32])[0], int.from_bytes(sig[32:], "little")
-    k = h(sig[:32], pub, msg)
-    lhs, rhs = point_mul(S, B), point_add(R, point_mul(k, A))
-    return lhs == rhs, point_mul(8, lhs) == point_mul(8, rhs)
+    out = {}
+    for label, k in (("full_k", k_full(sig[:32], pub, msg)), ("k_mod_L", k_full(sig[:32], pub, msg) % L)):
+        lhs, rhs = point_mul(S, B), point_add(R, point_mul(k, A))
+        out["cofactorless_" + label] = lhs == rhs
+        out["cofactored_" + label] = point_mul(8, lhs) == point_mul(8, rhs)
+    return out
 
 
 def build() -> dict:
@@ -65,28 +81,30 @@ def build() -> dict:
     pub_prime = encode_point(a_pt)
     pub_mixed = encode_point(point_add(a_pt, T))
 
-    # 1. mixed-order key, signature valid under both equations
+    # 1. mixed-order key, signature valid under both equations, with the full k and with k mod L
     ph1 = protected(KID_MIXED)
     msg1 = (ph1 + "." + payload).encode("ascii")
     for i in range(4096):
         r = h(SCALAR_SEED, b" nonce ", str(i).encode())
         R = encode_point(point_mul(r, B))
-        k = h(R, pub_mixed, msg1)
-        if k % 8 == 0:
-            sig1 = R + ((r + k * a) % L).to_bytes(32, "little")
+        k = k_full(R, pub_mixed, msg1)
+        if k % 8 == 0 and (k % L) % 8 == 0:
+            sig1 = R + ((r + (k % L) * a) % L).to_bytes(32, "little")
             break
     else:
         raise SystemExit("no nonce found")
-    assert equations(pub_mixed, sig1, msg1) == (True, True)
+    ALL_TRUE = {"cofactorless_full_k": True, "cofactored_full_k": True, "cofactorless_k_mod_L": True, "cofactored_k_mod_L": True}
+    assert equations(pub_mixed, sig1, msg1) == ALL_TRUE
 
     # 2. prime-order key, mixed-order R
     ph2 = protected(KID_PRIME)
     msg2 = (ph2 + "." + payload).encode("ascii")
     r = h(SCALAR_SEED, b" mixed R")
     R = encode_point(point_add(point_mul(r, B), T))
-    k = h(R, pub_prime, msg2)
-    sig2 = R + ((r + k * a) % L).to_bytes(32, "little")
-    assert equations(pub_prime, sig2, msg2) == (False, True)
+    k = k_full(R, pub_prime, msg2)
+    sig2 = R + ((r + (k % L) * a) % L).to_bytes(32, "little")
+    COFACTORED_ONLY = {"cofactorless_full_k": False, "cofactored_full_k": True, "cofactorless_k_mod_L": False, "cofactored_k_mod_L": True}
+    assert equations(pub_prime, sig2, msg2) == COFACTORED_ONLY
 
     jwks = {"https://fixture.invalid/.well-known/jwks.json": {"keys": [
         {"kty": "OKP", "crv": "Ed25519", "kid": KID_MIXED, "x": b64u(pub_mixed)},
@@ -96,9 +114,9 @@ def build() -> dict:
         "note": "Built by build_tanilo_shaped.py. Fixture keys only; the scalar is published in the builder on purpose.",
         "jwks_by_issuer": jwks,
         "receipts": {
-            "mixed-order-key": {"equations": {"cofactorless": True, "cofactored": True},
+            "mixed-order-key": {"equations": ALL_TRUE,
                                 "jws": {"payload": payload, "signatures": [{"protected": ph1, "signature": b64u(sig1)}]}},
-            "mixed-order-r": {"equations": {"cofactorless": False, "cofactored": True},
+            "mixed-order-r": {"equations": COFACTORED_ONLY,
                               "jws": {"payload": payload, "signatures": [{"protected": ph2, "signature": b64u(sig2)}]}},
         },
     }

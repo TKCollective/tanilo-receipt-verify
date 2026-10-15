@@ -194,6 +194,34 @@ def test_tanilo_shaped_fixture_rebuilds_byte_for_byte_and_carries_the_aer1_paylo
     assert hashlib.sha256(payload).hexdigest() == "ca2fb84597076f9c8fac2d957a05bf21a11bd741e519879ff09ba78fd2305325"
 
 
+def _four_equations(pub, sig, msg):
+    """RFC 8032 section 5.1.7, computed here: cofactorless [S]B = R + [k]A and cofactored [8][S]B = [8]R + [8][k]A,
+    with k the full SHA-512 digest of R || A || M (as RFC 8032 states it) and with k mod L."""
+    A, R, S = g.decode_point(pub)[0], g.decode_point(sig[:32])[0], int.from_bytes(sig[32:], "little")
+    full = int.from_bytes(hashlib.sha512(sig[:32] + pub + msg).digest(), "little")
+    out = {}
+    for label, k in (("full_k", full), ("k_mod_L", full % g.L)):
+        lhs, rhs = g.point_mul(S, B), g.point_add(R, g.point_mul(k, A))
+        out["cofactorless_" + label] = lhs == rhs
+        out["cofactored_" + label] = g.point_mul(8, lhs) == g.point_mul(8, rhs)
+    return out
+
+
+@pytest.mark.parametrize("name,expected", [
+    ("mixed-order-key", {"cofactorless_full_k": True, "cofactored_full_k": True, "cofactorless_k_mod_L": True, "cofactored_k_mod_L": True}),
+    ("mixed-order-r", {"cofactorless_full_k": False, "cofactored_full_k": True, "cofactorless_k_mod_L": False, "cofactored_k_mod_L": True}),
+])
+def test_tanilo_shaped_receipts_satisfy_the_recorded_equations_with_full_k_and_with_k_mod_L(name, expected):
+    rec = SHAPED["receipts"][name]
+    sig_entry = rec["jws"]["signatures"][0]
+    kid = json.loads(b64u_decode(sig_entry["protected"]))["kid"]
+    pub = b64u_decode([k for k in list(SHAPED["jwks_by_issuer"].values())[0]["keys"] if k["kid"] == kid][0]["x"])
+    msg = (sig_entry["protected"] + "." + rec["jws"]["payload"]).encode("ascii")
+    got = _four_equations(pub, b64u_decode(sig_entry["signature"]), msg)
+    assert got == expected
+    assert rec["equations"] == expected
+
+
 def test_the_live_aer1_receipt_still_verifies():
     receipt = json.loads((FIX / "aer1" / "receipt.jws.json").read_text())
     jwks = json.loads((FIX / "aer1" / "jwks-tanilo-io-2026-10-08.json").read_text())

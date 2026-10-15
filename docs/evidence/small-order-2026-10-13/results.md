@@ -72,6 +72,15 @@ D="$PWD" && cd / && "$D/venv/bin/python" "$D/run_cases.py" "$D/sdist-x/tanilo_re
 
 `shasum -a 256 cases.txt` must print `db14ccd6953ffa79c81586da8f4ab41dd893f7efd07af97d027a27c179b3ab6b  cases.txt`. If it prints any other hash, the published file has changed since this run: stop. `cases.txt` is not kept in this folder; the file fetched by the command above was identical on 12 and 13 October 2026.
 
+Corrected source URL (added 2026-10-15; the master ref is no longer a branch: the repository's only branch is now `main`, and `refs/heads/master` and GitHub's `/raw/master/` URL return 404, although the exact URL in the command above still answered 200 on 2026-10-15). The `cases.txt` with the digest above is the one at commit `5e4bfc4542293286e9ad3cb2b805badee00503de`, the head of `main`:
+
+```bash
+curl -sSL -o cases.txt https://raw.githubusercontent.com/novifinancial/ed25519-speccheck/5e4bfc4542293286e9ad3cb2b805badee00503de/cases.txt
+shasum -a 256 cases.txt
+```
+
+It must print `db14ccd6953ffa79c81586da8f4ab41dd893f7efd07af97d027a27c179b3ab6b  cases.txt`.
+
 `pip freeze` must print the four lines of `requirements.txt`. `pip-report.json` beside this file is pip's own report of the install command above, unedited; it contains no local paths.
 
 The script is run from `/` so that Python cannot pick up a source checkout from the current directory. It prints `results.json`, which is saved beside this file.

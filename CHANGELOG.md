@@ -1,5 +1,36 @@
 # Changelog
 
+## 0.2.3 — 2026-10-15: documentation and test-fixture corrections (no behavior change)
+
+Documentation and test-fixture corrections only. `verify()` and the Ed25519
+input guard behave exactly as in 0.2.2; the only change inside the package is
+its version number.
+
+- Test fixture `tests/fixtures/mixed-order/tanilo-shaped.json`, receipt
+  `mixed-order-key`: RFC 8032 section 5.1.7 takes k as the full SHA-512
+  digest, not reduced mod L. The 0.2.2 builder chose its nonce with k mod L
+  only, and its signature satisfied the cofactorless equation with k mod L
+  but not with the full k (the cofactored equation held either way). The
+  builder now computes k unreduced for the nonce search and the checks
+  (mod L only when computing S), and the regenerated signature satisfies
+  both the cofactorless and the cofactored equation with the full k and with
+  k mod L. The fixture records all four results. The library still accepts
+  it and the guard still refuses it with `mixed_order_key`.
+- Tests: two new cases in `tests/test_ed25519_mixed_order.py` (75 in all)
+  recompute the four equation results for both generated receipts and check
+  them against the recorded ones. The fixture's NOTICE carries a dated
+  correction.
+- CHANGELOG, 0.2.2 entry: the order of checks, the Taming case 3 sentence
+  (our recorded environment, the vector's raw message, not `verify()`), the
+  fixture description, and the closing note on the 0.2.1 entry are corrected.
+- `BUILD_AND_PUBLISH.md`: the upload sentence now says earlier build and
+  install steps may download dependencies from PyPI but do not publish this
+  package.
+- `docs/evidence/small-order-2026-10-13/results.md`: the original command is
+  kept as the historical record; below it, a labeled corrected source URL for
+  `cases.txt`, pinned to the commit whose file has the recorded digest, with
+  the digest check.
+
 ## 0.2.2 — 2026-10-15: mixed-order Ed25519 keys and R are refused (stricter acceptance policy)
 
 ### A stricter acceptance policy: mixed-order A and R are refused
@@ -19,17 +50,21 @@ so two conforming verifiers can disagree on it. This release aligns
 behavior across verifiers: the answer no longer depends on which equation
 the underlying library uses. It is not a fix for a forgery against 0.2.1.
 
-0.2.1 and the library accepted Taming case 3 (a mixed-order A and R), as
-recorded in `docs/evidence/small-order-2026-10-13/` and posted in the
-measurement thread on
+In our recorded environment, the 0.2.1 guard followed by the library accepted
+Taming case 3, which has mixed-order A and R. This test used the vector's raw
+message, not the public verify() function. It is recorded in
+`docs/evidence/small-order-2026-10-13/` and was posted in the measurement
+thread on
 [x402-foundation/tsc#4](https://github.com/x402-foundation/tsc/issues/4).
 @babyblueviper1 then added mixed-order checks and three vectors to
 preaction-governance-conformance at
 [9d4cf2c](https://github.com/babyblueviper1/preaction-governance-conformance/tree/9d4cf2c7782fe79b68c7679b4967180ebdb9e0bd/examples/acceptance-record-cold);
 those three vectors are in this release's tests.
 
-- Order: every 0.2.1 check runs first and keeps its reason code, so an input
-  0.2.1 rejected is rejected with the same reason. Then the key, then R.
+- Order: the existing 0.2.1 input-guard checks run first and retain their
+  reason codes. The new subgroup checks then examine the key, followed by R,
+  before library signature verification. Inputs previously rejected by the
+  library may now receive a mixed-order reason.
 - A refusal is a failed verification, never a raise: `status="invalid"`, the
   signer entry carries `verified: False` and a `reason` starting with
   `mixed_order_key` or `mixed_order_r`, and the same text is appended to the
@@ -48,7 +83,8 @@ those three vectors are in this release's tests.
   9d4cf2c, at the guard and through `verify()` (rewritten from flattened to
   general serialization, strings unchanged); two receipts in the form the API
   issues, over the live AER-1 payload, under fixture keys (a mixed-order key
-  whose signature satisfies both equations, and a mixed-order R); the 0.2.1
+  whose signature satisfies both equations with k reduced mod L, and a
+  mixed-order R; see 0.2.3 for the full-k correction); the 0.2.1
   reasons keep their order; the scalar is L; the extended multiplication
   agrees with the affine one; the published Tanilo keys are in the
   prime-order subgroup; random and malformed bytes never raise; the live
@@ -60,8 +96,7 @@ those three vectors are in this release's tests.
   draft-krausz-verification-state-03, the filed revision, instead of -02;
   the cited sections (3, 3.1 and 5.1) say the same in -03.
 
-The 0.2.1 entry below, which says mixed-order points are not checked, is
-left as it was released.
+The 0.2.1 entry retains its historical statement that mixed-order points were not checked; its guard-order wording and the placement of the timestamp audit note have been corrected.
 
 ## 0.2.1 — 2026-10-13: Ed25519 small-order guard (security); `mapping_policy`
 

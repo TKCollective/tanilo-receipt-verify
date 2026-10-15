@@ -48,7 +48,7 @@ Name the two files explicitly, so no other version in `dist/` is uploaded:
 ```
 
 At the prompt, the username is `__token__` and the password is the PyPI API token. The upload is the publish
-step; nothing before it touches PyPI.
+step; earlier installation and build steps may download dependencies from PyPI but do not publish this package.
 
 ## After the upload
 
