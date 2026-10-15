@@ -11,11 +11,12 @@ are its version number and one docstring sentence in `ed25519_guard.py`.
   digest, not reduced mod L. The 0.2.2 builder chose its nonce with k mod L
   only, and its signature satisfied the cofactorless equation with k mod L
   but not with the full k (the cofactored equation held either way). The
-  builder now computes k unreduced for the nonce search and the checks
-  (mod L only when computing S), and the regenerated signature satisfies
-  both the cofactorless and the cofactored equation with the full k and with
-  k mod L. The fixture records all four results. The library still accepts
-  it and the guard still refuses it with `mixed_order_key`.
+  builder now computes the full k, selects a nonce for which both k and k
+  mod L are divisible by 8, and checks both equations with each value. The
+  regenerated signature satisfies both the cofactorless and the cofactored
+  equation with the full k and with k mod L. The fixture records all four
+  results. The library still accepts it and the guard still refuses it with
+  `mixed_order_key`.
 - Tests: two new cases in `tests/test_ed25519_mixed_order.py` (75 in all)
   recompute the four equation results for both generated receipts and check
   them against the recorded ones. The fixture's NOTICE carries a dated

@@ -5,9 +5,9 @@ receipt (tanilo-receipt-spec examples/interop/aer1/receipt.jws.json, signed 2026
 FIXTURE key whose scalar is published here on purpose. Never a production key.
 
 RFC 8032 section 5.1.7 defines k as the full 64-octet SHA-512 digest of R || A || M, read as a little-endian
-integer, with no reduction mod L. Common implementations reduce it mod L first. For a key in the prime-order subgroup
+integer, with no reduction mod L. The RFC's illustrative verifier (section 6) reduces it modulo L. For a key in the prime-order subgroup
 the two give the same result; for a mixed-order key they can differ, because L mod 8 = 5 and [k]T depends on k mod 8.
-So every equation below is checked with the full k (as RFC 8032 states it) and with k mod L.
+So every equation below is checked with the full k (specified in RFC 8032 section 5.1.7) and with k mod L.
 
 1. mixed-order-key: A = [a]B + T, where T is an order-8 point. The nonce is chosen so that both the full k and
    k mod L are divisible by 8; then [k]T is the identity under either reading, and S = r + (k mod L)*a satisfies the

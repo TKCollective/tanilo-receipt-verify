@@ -24,8 +24,8 @@ tanilo-receipt-spec `examples/interop/aer1/receipt.jws.json`), under fixture key
 builder on purpose. Neither key is a production key.
 
 - `mixed-order-key`: a mixed-order key with a signature that satisfies both the cofactorless and the cofactored
-  RFC 8032 section 5.1.7 equation, with k taken as the full SHA-512 digest (as RFC 8032 states it) and with k
-  reduced mod L (as common implementations compute it).
+  RFC 8032 section 5.1.7 equation, with k taken as the full SHA-512 digest (specified in RFC 8032 section 5.1.7) and with k
+  reduced modulo L (as used in the RFC's illustrative verifier, section 6).
 - `mixed-order-r`: a prime-order key with a mixed-order R; the cofactored equation holds and the cofactorless one
   does not, with the full k and with k mod L.
 

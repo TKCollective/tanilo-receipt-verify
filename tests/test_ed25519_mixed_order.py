@@ -196,7 +196,8 @@ def test_tanilo_shaped_fixture_rebuilds_byte_for_byte_and_carries_the_aer1_paylo
 
 def _four_equations(pub, sig, msg):
     """RFC 8032 section 5.1.7, computed here: cofactorless [S]B = R + [k]A and cofactored [8][S]B = [8]R + [8][k]A,
-    with k the full SHA-512 digest of R || A || M (as RFC 8032 states it) and with k mod L."""
+    with k = SHA-512 of R || A || M. The test evaluates both the full SHA-512 digest specified in RFC 8032 §5.1.7 and
+    the digest reduced modulo L, as used in the RFC's illustrative verifier."""
     A, R, S = g.decode_point(pub)[0], g.decode_point(sig[:32])[0], int.from_bytes(sig[32:], "little")
     full = int.from_bytes(hashlib.sha512(sig[:32] + pub + msg).digest(), "little")
     out = {}

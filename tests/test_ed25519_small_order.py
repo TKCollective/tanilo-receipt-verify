@@ -174,8 +174,9 @@ B_POINT = g.decode_point(bytes.fromhex("5866666666666666666666666666666666666666
 
 
 def _four_equations(pub, sig, msg):
-    """RFC 8032 section 5.1.7: cofactorless [S]B = R + [k]A and cofactored [8][S]B = [8]R + [8][k]A, with k the full
-    SHA-512 digest of R || A || M (as RFC 8032 states it) and with k mod L (as common implementations compute it)."""
+    """RFC 8032 section 5.1.7: cofactorless [S]B = R + [k]A and cofactored [8][S]B = [8]R + [8][k]A, with k = SHA-512 of
+    R || A || M. The test evaluates both the full SHA-512 digest specified in RFC 8032 §5.1.7 and the digest reduced modulo L,
+    as used in the RFC's illustrative verifier."""
     A, R, S = g.decode_point(pub)[0], g.decode_point(sig[:32])[0], int.from_bytes(sig[32:], "little")
     full = int.from_bytes(hashlib.sha512(sig[:32] + pub + msg).digest(), "little")
     out = {}
@@ -196,10 +197,10 @@ ALL_FOUR_TRUE = {"cofactorless_full_k": True, "cofactored_full_k": True, "cofact
 
 def test_published_small_order_key_fails_with_an_equation_valid_signature():
     # Taming cases 0/1's key A (order 8). Build a signature that satisfies the verification equation for OUR signing
-    # input: S = 0 and R = [j]A with j + k = 0 (mod 8), so [S]B = R + [k]A. k is taken both ways RFC 8032 section
-    # 5.1.7 can be read in practice: the full SHA-512 digest, and that digest mod L. Successive payloads are tried
-    # until one j works for both. The guard must reject it: small_order_key. (Whether the backend accepts it is not
-    # asserted.)
+    # input: S = 0 and R = [j]A with j + k = 0 (mod 8), so [S]B = R + [k]A. The test evaluates both the full SHA-512
+    # digest specified in RFC 8032 §5.1.7 and the digest reduced modulo L, as used in the RFC's illustrative verifier.
+    # Successive payloads are tried until one j works for both. The guard must reject it: small_order_key. (Whether
+    # the backend accepts it is not asserted.)
     raw_a = bytes.fromhex("c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac03fa")
     a_pt, _ = g.decode_point(raw_a)
     assert g.is_small_order(a_pt)
