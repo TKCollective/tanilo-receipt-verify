@@ -1,27 +1,32 @@
 # Changelog
 
-## Unreleased: mixed-order Ed25519 keys and R are refused
+## 0.2.2 — 2026-10-15: mixed-order Ed25519 keys and R are refused (stricter acceptance policy)
 
-### A stricter acceptance policy than the RFC 8032 verification equation
+### A stricter acceptance policy: mixed-order A and R are refused
 
 After the existing checks, `verify()` now refuses an Ed25519 public key A
 whose [L]A is not the identity, and a signature whose R has [L]R not the
-identity (L = 2^252 + 27742317777372353535851937790883648493, RFC 8032
-section 5.1). Such a point is *mixed-order*: neither small-order nor in the
-prime-order subgroup.
+identity, where L, the order of the base point (the prime-order subgroup),
+is 2^252 + 27742317777372353535851937790883648493 (RFC 8032 section 5.1).
+Such a point is *mixed-order*: neither small-order nor in the prime-order
+subgroup.
 
 This is a stricter acceptance policy than the RFC 8032 verification
-equation. Some equation-valid signatures with a mixed-order A or R are now
-refused. Whether they verify depends on whether a verifier uses the
-cofactorless or the cofactored equation (RFC 8032 section 5.1.7), so two
-conforming verifiers can disagree on them; this release refuses them
-independently of that choice. It is not a fix for a forgery under an
-ordinary key.
+equation: some equation-valid signatures with a mixed-order A or R are now
+refused. Whether such a signature verifies depends on whether a verifier
+uses the cofactorless or the cofactored equation (RFC 8032 section 5.1.7),
+so two conforming verifiers can disagree on it. This release aligns
+behavior across verifiers: the answer no longer depends on which equation
+the underlying library uses. It is not a fix for a forgery against 0.2.1.
 
 0.2.1 and the library accepted Taming case 3 (a mixed-order A and R), as
-recorded in `docs/evidence/small-order-2026-10-13/`. @babyblueviper1 added
-mixed-order checks and three vectors to preaction-governance-conformance at
-9d4cf2c, after that measurement was posted on x402-foundation/tsc#4.
+recorded in `docs/evidence/small-order-2026-10-13/` and posted in the
+measurement thread on
+[x402-foundation/tsc#4](https://github.com/x402-foundation/tsc/issues/4).
+@babyblueviper1 then added mixed-order checks and three vectors to
+preaction-governance-conformance at
+[9d4cf2c](https://github.com/babyblueviper1/preaction-governance-conformance/tree/9d4cf2c7782fe79b68c7679b4967180ebdb9e0bd/examples/acceptance-record-cold);
+those three vectors are in this release's tests.
 
 - Order: every 0.2.1 check runs first and keeps its reason code, so an input
   0.2.1 rejected is rejected with the same reason. Then the key, then R.
@@ -35,6 +40,9 @@ mixed-order checks and three vectors to preaction-governance-conformance at
   be zero and pass every point). The multiplication uses extended
   coordinates. `check_public_key` and `check_signature` are unchanged; the
   new `check_mixed_order` runs inside `check_ed25519`.
+- Verification takes about twice as long. On an Apple M5 Pro with Python
+  3.14.7, 1,000 `verify()` calls on the AER-1 receipt took 2.61 s with
+  0.2.1 and 5.49 s with this change (best of five rounds, two runs each).
 - Tests: `tests/test_ed25519_mixed_order.py` (73 cases): Taming cases 3, 4
   and 5; the three mixed-order vectors of preaction-governance-conformance at
   9d4cf2c, at the guard and through `verify()` (rewritten from flattened to
@@ -45,13 +53,12 @@ mixed-order checks and three vectors to preaction-governance-conformance at
   agrees with the affine one; the published Tanilo keys are in the
   prime-order subgroup; random and malformed bytes never raise; the live
   AER-1 receipt and the other published fixtures still verify.
-- Cost: on an Apple M5 Pro with Python 3.14.7, 1,000 `verify()` calls on
-  the AER-1 receipt took 2.61 s with 0.2.1 and 5.49 s with this change
-  (best of five rounds, two runs each).
 - Wording corrected: the docstrings and comments in `verify.py` and
   `ed25519_guard.py` now say the guard runs before the library verifies the
   signature (0.2.1 said "before the library is called"; the library builds
-  the key object first).
+  the key object first). Comments in `verify.py` cite
+  draft-krausz-verification-state-03, the filed revision, instead of -02;
+  the cited sections (3, 3.1 and 5.1) say the same in -03.
 
 The 0.2.1 entry below, which says mixed-order points are not checked, is
 left as it was released.

@@ -17,7 +17,7 @@ Design notes (must not drift):
    `separators=(",", ":")`. We reimplement the emit path explicitly to lock
    this in and never rely on library defaults.
 
-3. Algorithms — draft-krausz-verification-state-02 Section 5.1 requires a
+3. Algorithms — draft-krausz-verification-state-03 Section 5.1 requires a
    conforming implementation to accept both `EdDSA` (Ed25519) and `ES256`
    (P-256 / SHA-256 ECDSA). `cryptography.hazmat`'s Ed25519PublicKey verifies
    raw 32-byte pubkeys and 64-byte sigs directly, matching Node crypto's
@@ -36,7 +36,7 @@ Design notes (must not drift):
    a raise. Rejecting a small-order R is stricter than the RFC 8032
    verification equation.
 
-5. Mixed-order Ed25519 points (unreleased, after 0.2.1) -- after those
+5. Mixed-order Ed25519 points (0.2.2) -- after those
    checks, the guard refuses a key A with [L]A not the identity
    (`mixed_order_key`) and an R with [L]R not the identity (`mixed_order_r`).
    Same outcome as the reasons above: a failed verification, `verified:
@@ -67,7 +67,7 @@ from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 from .ed25519_guard import check_ed25519
 
 # Algorithms this verifier can actually check a signature for. draft-krausz-
-# verification-state-02 Section 5.1 requires both; anything else is a known
+# verification-state-03 Section 5.1 requires both; anything else is a known
 # algorithm we simply don't verify (see _jwk_to_pubkey), not an error.
 SUPPORTED_ALGS = ("EdDSA", "ES256")
 
@@ -220,7 +220,7 @@ def _verify_jws_signature(alg: str, payload_b64: str, protected_b64: str, sig_b6
 
 # Status vocabulary — mirrors verification-v0.4 draft §3.5 ("Anchoring status
 # — adjudication without a trusted wall-clock", agentoracle-receipt-spec,
-# drafts/verification-v0.4.md), NOT draft-krausz-verification-state-02, which
+# drafts/verification-v0.4.md), NOT draft-krausz-verification-state-03, which
 # has no §3.5 on this topic.
 #
 # That §3.5 establishes that `indeterminate_pending` "is an honest named state
@@ -298,7 +298,7 @@ def verify(
     This is a thin, never-raising gate in front of `_verify_core`, added in
     0.1.1 per stillmarcus24's report (tsc#4, 2026-09-24): 0.1.0 raised on 22
     of 30 malformed envelopes he tested, and an exception is not one of the
-    four states draft-krausz-verification-state-02 Section 3 defines. A
+    four states draft-krausz-verification-state-03 Section 3 defines. A
     caller that catches a traceback cannot tell `contradicted` from
     `instrument_failure` -- so a verifier that raises has silently opted out
     of the vocabulary it implements. This function makes that impossible:
@@ -508,7 +508,7 @@ def _verify_core(
             alg = protected.get("alg")
             kid = protected.get("kid", "")
             if alg not in SUPPORTED_ALGS:
-                # draft-krausz-verification-state-02 Section 5.1 REQUIRES
+                # draft-krausz-verification-state-03 Section 5.1 REQUIRES
                 # accepting EdDSA and ES256; it does not forbid other
                 # algorithms existing in the wild. A signature under an
                 # algorithm this verifier doesn't implement is a LIMITATION

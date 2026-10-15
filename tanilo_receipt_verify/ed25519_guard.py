@@ -24,7 +24,7 @@ in x402-foundation/tsc#4. @babyblueviper1 reproduced it and added small-order
 checks to preaction-governance-conformance at 90b5032. This release adds
 corresponding input restrictions to Tanilo's verifier.
 
-Mixed-order points (unreleased, after 0.2.1). A mixed-order point is neither
+Mixed-order points (0.2.2). A mixed-order point is neither
 small-order nor in the prime-order subgroup: [L]P is not the identity. Whether
 a signature under a mixed-order key, or with a mixed-order R, verifies depends
 on whether the verifier uses the cofactorless or the cofactored equation of
@@ -48,9 +48,9 @@ signature:
 - the signature's R must decode and must not be a small-order point;
 - the signature's S must satisfy 0 <= S < L (RFC 8032 section 5.1.7);
 - then, after all of the above: [L]A must be the identity, and [L]R must be
-  the identity (L = 2^252 + 27742317777372353535851937790883648493, the
-  prime order of the base point, RFC 8032 section 5.1). The point is
-  multiplied by L itself; the scalar is never reduced mod L, which would
+  the identity, where L, the order of the base point (the prime-order
+  subgroup), is 2^252 + 27742317777372353535851937790883648493 (RFC 8032
+  section 5.1). The point is multiplied by L itself; the scalar is never reduced mod L, which would
   multiply by zero and pass every point.
 
 Everything here is pure Python on integers and never raises (a wrong input
@@ -70,7 +70,7 @@ from __future__ import annotations
 from typing import Optional, Tuple
 
 P = 2**255 - 19
-L = 2**252 + 27742317777372353535851937790883648493
+L = 2**252 + 27742317777372353535851937790883648493   # L, the order of the base point (the prime-order subgroup); RFC 8032 section 5.1
 _D = (-121665 * pow(121666, P - 2, P)) % P
 _SQRT_M1 = pow(2, (P - 1) // 4, P)
 
@@ -148,7 +148,7 @@ def is_small_order(pt: Point) -> bool:
     return point_mul(8, pt) == IDENTITY
 
 
-# The scalar for the subgroup check: the prime order of the base point, RFC 8032 section 5.1. Used as it is,
+# The scalar for the subgroup check: L, the order of the base point (the prime-order subgroup); RFC 8032 section 5.1. Used as it is,
 # never reduced mod L ([L mod L]P = [0]P is the identity for every point, so a reduced scalar would pass everything).
 L_ORDER_SCALAR = 2**252 + 27742317777372353535851937790883648493
 assert L_ORDER_SCALAR == L

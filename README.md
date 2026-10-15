@@ -211,8 +211,8 @@ r.signers[0]["reason"]   # "small_order_key: the public key encodes a small-orde
 
 The reason starts with one of `small_order_key`, `small_order_r`,
 `noncanonical_key_encoding`, `noncanonical_r_encoding`, `key_not_on_curve`,
-`r_not_on_curve`, `signature_s_out_of_range`, `signature_length`, `key_type`
-or `signature_type`. An ordinary cryptographic failure carries no `reason`,
+`r_not_on_curve`, `signature_s_out_of_range`, `signature_length`, `key_type`,
+`signature_type`, `mixed_order_key` or `mixed_order_r`. An ordinary cryptographic failure carries no `reason`,
 as before.
 
 All five Tanilo published public keys tested pass the new public-key checks. A
@@ -225,8 +225,7 @@ signing, small-order R is negligibly unlikely but not impossible. Version
 including ones a key holder constructs deliberately. The identity-key
 acceptance issue concerns a supplied key set containing a crafted key.
 
-Not checked: a mixed-order key or R (outside the prime-order subgroup but not
-itself small-order). RFC 8032 does not require rejecting those.
+After those checks, a mixed-order key or R (outside the prime-order subgroup but not itself small-order) is refused with `mixed_order_key` or `mixed_order_r`.
 
 The identity-key behavior was reported by Noûs through @robertolocatelli81-dev
 in x402-foundation/tsc#4. @babyblueviper1 reproduced it and added small-order
