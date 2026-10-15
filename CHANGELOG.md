@@ -47,6 +47,12 @@ are its version number and one docstring sentence in `ed25519_guard.py`.
   kept as the historical record; below it, a labeled corrected source URL for
   `cases.txt`, pinned to the commit whose file has the recorded digest, with
   the digest check.
+- New `docs/evidence/conformance-2026-10-15/`: this package used as the
+  Ed25519 layer inside the acceptance-record runner and checker of
+  preaction-governance-conformance (commit 5abe7a6, 50 vectors): 0.2.1 from
+  PyPI agrees on 48/50, 0.2.3 on 50/50. It is not a test of `verify()`. The
+  folder holds the adapter, the exact commands, the environment and the raw
+  outputs.
 
 ## 0.2.2 — 2026-10-15: mixed-order Ed25519 keys and R are refused (stricter acceptance policy)
 

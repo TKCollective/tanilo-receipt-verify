@@ -1,0 +1,34 @@
+Vector acc-mixed-order-key-accepted-by-both-equations: RFC 8032 section 5.1.7 equations
+==========================================================================================
+
+Source: babyblueviper1/preaction-governance-conformance at 9d4cf2c7782fe79b68c7679b4967180ebdb9e0bd,
+examples/acceptance-record-cold/vectors.json (sha256 c5d0a142cf22b1cfff366fb1b6689de0b0d88ba0ad5cf846db9027204f0c138a).
+Computed 2026-10-15 with standalone point arithmetic (extended coordinates, written for this check; it shares no
+code with tanilo-receipt-verify or with the corpus's own tools). The vector is not changed.
+
+Inputs, as in the vector
+  key (trust material, kid "cp-1"):   74f605310fae8fce7c6d7cd3c6154a3ff4735a934376c90ea383c9b04b3fbda9
+  signature R:                        25a407cb7b6819b74bcbd083be86d6b5af4211ab5f28ebb6dfc8b9a98cb57a34
+  signature S (little-endian bytes):  c39ff58a07ae0abcf92cfaaefc46086ea9791926affa4d9a1a5e90361fb76c01
+  message M (the JWS signing input): protected + "." + payload of the vector's acceptance, ASCII, 593 bytes
+  k = SHA-512(R || A || M) read as a little-endian integer (RFC 8032 section 5.1.7 does not reduce it mod L)
+
+k values
+  full k (512 bits, hex):  a81bbe15f6edec517b823dc83c0e4fb9bf5e9ccd9020eb6a49ff9dfe135b0141a7352a80d68bfe79c850f6451c4298c00b79fd87fedc49a0620c2f3787851085
+  k mod L (hex):           0c45f71b98c6d8484480a5314ea5ba8e51b2fe5a234c2d8d8cd67f5731111f48
+  full k mod 8    = 5
+  (k mod L) mod 8 = 0
+  L mod 8         = 5   (L = 2^252 + 27742317777372353535851937790883648493, the order of the base point)
+
+The key A is mixed-order and has order 8L. The point [L]A is not the identity and has order 8. So [k]A depends
+on k mod 8 through A's torsion component, and the full k and k mod L can give different results.
+
+Results
+  cofactorless  [S]B = R + [k]A             full k: False   k mod L: True
+  cofactored    [8][S]B = [8]R + [8][k]A    full k: True    k mod L: True
+
+Reading: the signature satisfies the cofactored equation whichever way k is taken, and the cofactorless equation
+only when k is reduced modulo L first, as in the RFC's illustrative verifier (RFC 8032 section 6). With k as RFC 8032 section 5.1.7 states it, the
+full digest, the cofactorless equation does not hold. The vector's builder computes k mod L (build_vectors.py at
+9d4cf2c, lines 232 and 241, reduce the digest mod L), which is why it reports both equations as holding.
+

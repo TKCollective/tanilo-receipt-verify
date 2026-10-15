@@ -1,0 +1,16 @@
+== venv-021
+Python 3.14.7 | macOS-26.6.2-arm64-arm-64bit-Mach-O
+cryptography 50.0.2 | OpenSSL 4.0.3 29 Sep 2026
+cffi==2.1.1
+cryptography==50.0.2
+pip==26.2.1
+pycparser==3.11
+tanilo-receipt-verify==0.2.1
+== venv-023
+Python 3.14.7 | macOS-26.6.2-arm64-arm-64bit-Mach-O
+cryptography 50.0.2 | OpenSSL 4.0.3 29 Sep 2026
+cffi==2.1.1
+cryptography==50.0.2
+pip==26.2.1
+pycparser==3.11
+tanilo-receipt-verify==0.2.3

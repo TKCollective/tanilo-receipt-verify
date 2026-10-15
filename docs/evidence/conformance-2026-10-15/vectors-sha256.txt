@@ -1,0 +1,1 @@
+c5d0a142cf22b1cfff366fb1b6689de0b0d88ba0ad5cf846db9027204f0c138a  corpus/examples/acceptance-record-cold/vectors.json
