@@ -71,6 +71,23 @@ from .ed25519_guard import check_ed25519
 # algorithm we simply don't verify (see _jwk_to_pubkey), not an error.
 SUPPORTED_ALGS = ("EdDSA", "ES256")
 
+# Test and fixture keys (0.2.4). A key set may list a key whose private half is
+# published on purpose (a fixture anyone can sign with). Such a key must not
+# verify a receipt unless the caller asks for it: by default the signer is
+# refused before its signature is checked, with reason `fixture_key_refused`,
+# and the result is invalid. Two ways a key is recognised as a test key:
+#   - its JWK carries tanilo_status "fixture" or "test";
+#   - its kid is in KNOWN_FIXTURE_KIDS (for key-set copies that carry no
+#     status members; the published fixture key's private half is in
+#     tanilo-receipt-spec, examples/jwks-fixture-detached.json).
+FIXTURE_KEY_STATUSES = ("fixture", "test")
+KNOWN_FIXTURE_KIDS = frozenset({"ao-fixture-detached-rfc7797-2026-07-ed25519-0f8bf2a5"})
+
+
+def _is_fixture_key(jwk: Dict[str, Any]) -> bool:
+    """True when the JWK is a published test key: by status member or by known kid."""
+    return str(jwk.get("tanilo_status", "")).lower() in FIXTURE_KEY_STATUSES or jwk.get("kid") in KNOWN_FIXTURE_KIDS
+
 
 # ---------- JCS (RFC 8785) ----------
 
@@ -292,6 +309,7 @@ def verify(
     envelope: Dict[str, Any],
     jwks_by_issuer: Optional[Dict[str, Dict[str, Any]]] = None,
     jwks_is_complete: bool = False,
+    allow_test_keys: bool = False,
 ) -> VerifyResult:
     """Verify an AgentOracle composed envelope.
 
@@ -357,7 +375,8 @@ def verify(
         )
 
     try:
-        return _verify_core(envelope, jwks_by_issuer=jwks_by_issuer, jwks_is_complete=jwks_is_complete)
+        return _verify_core(envelope, jwks_by_issuer=jwks_by_issuer, jwks_is_complete=jwks_is_complete,
+                            allow_test_keys=allow_test_keys)
     except Exception as e:  # noqa: BLE001 -- intentional: see docstring above
         return VerifyResult(
             valid=None, status=STATUS_INDETERMINATE, canonical_sha256="",
@@ -369,6 +388,7 @@ def _verify_core(
     envelope: Dict[str, Any],
     jwks_by_issuer: Optional[Dict[str, Dict[str, Any]]] = None,
     jwks_is_complete: bool = False,
+    allow_test_keys: bool = False,
 ) -> VerifyResult:
     """Verify an AgentOracle composed envelope.
 
@@ -414,6 +434,14 @@ def _verify_core(
             `status="invalid"`. This does not change how a signature that
             actually fails cryptographic verification is reported -- both
             settings already return `verified=False` / invalid for that.
+
+        allow_test_keys (0.2.4): False (default): a signer whose JWK is a
+            published test key (tanilo_status "fixture" or "test", or a kid
+            in KNOWN_FIXTURE_KIDS) is refused before its signature is
+            checked: `verified=False`, reason `fixture_key_refused`, an
+            error naming the kid, result `invalid`. True: such keys are
+            verified like any other, for callers that check fixtures on
+            purpose. No other result changes with this flag.
 
     Returns:
         VerifyResult. Branch on `.status`, not on the truthiness of `.valid`.
@@ -524,12 +552,14 @@ def _verify_core(
             pubkey = None
             issuer_matched: Optional[str] = None
             key_material_error: Optional[str] = None
+            matched_jwk: Optional[Dict[str, Any]] = None
             for issuer_url, jwks in jwks_by_issuer.items():
                 for key in jwks.get("keys", []):
                     if key.get("kid") == kid:
                         try:
                             pubkey = _jwk_to_pubkey(key)
                             issuer_matched = issuer_url
+                            matched_jwk = key
                         except Exception as e:
                             # A kid MATCHED but the key material itself is
                             # malformed or an unsupported key type. Same
@@ -588,6 +618,22 @@ def _verify_core(
                 if key_material_error:
                     entry["reason"] = f"kid matched but key material invalid: {key_material_error}"
                 signers.append(entry)
+                continue
+
+            if not allow_test_keys and matched_jwk is not None and _is_fixture_key(matched_jwk):
+                # 0.2.4: a published test key. Anyone can create a signature
+                # under it, so such a signature does not establish that the
+                # issuer signed; it is refused before the signature is checked,
+                # as a policy refusal (verified=False), never folded into
+                # "unresolved".
+                status_member = str(matched_jwk.get("tanilo_status", "")).lower()
+                reason = (f"fixture_key_refused: this key is marked tanilo_status={status_member!r} and is not accepted by default; "
+                          "use allow_test_keys=True only for intentional fixture verification, not to establish production issuance"
+                          if status_member in FIXTURE_KEY_STATUSES else
+                          "fixture_key_refused: this kid identifies a known fixture key whose private key is public; "
+                          "use allow_test_keys=True only for intentional fixture verification, not to establish production issuance")
+                signers.append({"kid": kid, "issuer": issuer_matched or "unknown", "verified": False, "reason": reason})
+                errors.append(f"fixture key refused: kid={kid} is marked or identified as a test key and is not accepted under the default policy")
                 continue
 
             ok, guard_reason = _verify_jws_signature(alg, payload_b64, protected_b64, sig_b64, pubkey)

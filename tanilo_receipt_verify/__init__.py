@@ -17,8 +17,13 @@ A composed envelope with JWKS for some but not all signers previously
 adjudicated the whole envelope `invalid`, collapsing "we never checked
 this signer" into "this signer's signature failed." See CHANGELOG.
 
+Test and fixture keys (0.2.4): a signer whose JWK carries tanilo_status
+"fixture" or "test", or whose kid is in KNOWN_FIXTURE_KIDS, is refused by
+default (`fixture_key_refused`, result invalid). `allow_test_keys=True`
+verifies such keys for callers that check fixtures on purpose.
+
 Public API:
-    verify(envelope: dict, jwks_by_issuer: dict | None) -> VerifyResult
+    verify(envelope: dict, jwks_by_issuer: dict | None, jwks_is_complete=False, allow_test_keys=False) -> VerifyResult
     jcs(v) -> str
     sha256_hex(s: str) -> str
     recompute_decision_ref(decision_ref_slot: dict) -> str
@@ -38,6 +43,8 @@ from .verify import (
     STATUS_VALID,
     STATUS_INVALID,
     STATUS_INDETERMINATE,
+    FIXTURE_KEY_STATUSES,
+    KNOWN_FIXTURE_KIDS,
 )
 
 from .anchor import verify_anchor, evm_contract_lookup, AnchorResult
@@ -59,5 +66,7 @@ __all__ = [
     "STATUS_VALID",
     "STATUS_INVALID",
     "STATUS_INDETERMINATE",
+    "FIXTURE_KEY_STATUSES",
+    "KNOWN_FIXTURE_KIDS",
 ]
-__version__ = "0.2.3"
+__version__ = "0.2.4"
